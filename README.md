@@ -11,3 +11,4 @@ We use the public GitHub repository "Phigros_Resource" (created by 7aGiven) to f
 ### Notice
 All assets are completely unmodified. Therefore, there will be minor visual bugs when playing the chart in Phira. This is due to Phira's limited support for the Phigros file format.
 
+No assets are stored on this GitHub repo or the site itself!
