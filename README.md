@@ -6,13 +6,13 @@ Use it here: https://swordalt.github.io/phigros-chart-downloader/
 ### Usage
 Below are the features this project offers, as well as how to use them.
 
-## Export as Chart
+#### Export as Chart
 This allows one to export a playable chart, that can be imported into Phira and RPE. You must select a difficulty first in the "Difficulty" table on the left.
 
-## Export All Assets
+#### Export All Assets
 This allows one to export every asset for the selected song in a 'ZIP' archive.
 
-## Download Asset
+#### Download Asset
 This allows one to export a singular asset.
 
 ### URL Parameters
@@ -23,13 +23,13 @@ Below are the various URL parameters you can use to create a direct link for dow
 
 'songID' = Song's internal ID.
 
-## Download Chart
+#### Download Chart
 '?download=chart&songID={}&difficulty={}'
 
 'difficulty' = Difficulty
 - 'ez', 'hd', 'in', 'at'
 
-## Download Singular Asset
+#### Download Singular Asset
 '?download=asset&songID={}&type={}'
 
 'type' = What asset.
