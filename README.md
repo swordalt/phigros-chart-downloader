@@ -1,20 +1,42 @@
 # Phigros Chart Downloader
-This is a site that allows you to explore Phigros assets by songs (charts, illustrations, audio). In addition, you can export an available difficulty of a song as a PEZ file to import into Phira or Re:PhiEdit.
+This project allows you to explore Phigros assets by song (raw audio, illustrations, and chart files). You have the option to export assets individually, as a Phira/RPE compatible 'PEZ' file, or all in a 'ZIP' archive.
 
 Use it here: https://swordalt.github.io/phigros-chart-downloader/
 
-### Credits
-The public GitHub repository "Phigros_Resource" (created by 7aGiven) is used to fetch/download assets. [Visit Repo](https://github.com/7aGiven/Phigros_Resource)
+### Usage
+Below are the features this project offers, as well as how to use them.
 
-### Notice
-All* assets are completely unmodified. Therefore, there will be minor visual bugs when playing exported charts in Phira. This is due to Phira's limited support for the Phigros file format.
+## Export as Chart
+This allows one to export a playable chart, that can be imported into Phira and RPE. You must select a difficulty first in the "Difficulty" table on the left.
 
-###### *Note: Legacy charts (added later) will be converted to the current file format (v3) to avoid compatablity issues.
+## Export All Assets
+This allows one to export every asset for the selected song in a 'ZIP' archive.
 
-No assets are stored on this GitHub repo or the site itself.
+## Download Asset
+This allows one to export a singular asset.
 
-### To-Do
+### URL Parameters
+Below are the various URL parameters you can use to create a direct link for downloads.
 
-- Legacy / April Fools charts.
-- Song aliases / localized names.
-- Proper song/chart information in "info.txt" file.
+'download' = What to download.
+- 'chart', 'asset', 'all_assets'
+
+'songID' = Song's internal ID.
+
+## Download Chart
+'?download=chart&songID={}&difficulty={}'
+
+'difficulty' = Difficulty
+- 'ez', 'hd', 'in', 'at'
+
+## Download Singular Asset
+'?download=asset&songID={}&type={}'
+
+'type' = What asset.
+- 'audio', 'illust', 'c_ez', 'c_hd', 'c_in', 'c_at'
+
+Ex: https://swordalt.github.io/phigros-chart-downloader?download=asset&songID=QZKagoRequiem.tpazolite&type=audio
+- Downloads audio of QZKago Requiem.
+
+###Credits
+[Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) by 7aGiven
