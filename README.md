@@ -3,7 +3,7 @@ This project allows you to explore Phigros assets by song (raw audio, illustrati
 
 Use it here: https://swordalt.github.io/phigros-chart-downloader/
 
-### Usage
+## Usage
 Below are the features this project offers, as well as how to use them.
 
 #### Export as Chart
@@ -15,7 +15,7 @@ This allows one to export every asset for the selected song in a 'ZIP' archive.
 #### Download Asset
 This allows one to export a singular asset.
 
-### URL Parameters
+## URL Parameters
 Below are the various URL parameters you can use to create a direct link for downloads.
 
 'download' = What to download.
@@ -38,5 +38,5 @@ Below are the various URL parameters you can use to create a direct link for dow
 Ex: https://swordalt.github.io/phigros-chart-downloader?download=asset&songID=QZKagoRequiem.tpazolite&type=audio
 - Downloads audio of QZKago Requiem.
 
-###Credits
-[Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) by 7aGiven
+### Credits
+[Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
