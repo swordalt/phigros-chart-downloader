@@ -1,4 +1,6 @@
 # Phigros Chart Downloader
+### Note: This project relies upon [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) for new additions.
+
 This project allows you to explore Phigros assets by song (raw audio, illustrations, and chart files). You have the option to export assets individually, as a Phira/RPE compatible 'PEZ' file, or all in a 'ZIP' archive.
 
 Use it here: https://swordalt.github.io/phigros-chart-downloader/
