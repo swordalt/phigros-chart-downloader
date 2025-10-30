@@ -40,3 +40,10 @@ Ex: https://swordalt.github.io/phigros-chart-downloader?download=asset&songID=QZ
 
 ### Credits
 [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
+- For providing decompiled assets and files.
+
+[phichain](https://github.com/Ivan-1F/phichain), by [Ivan-1F](https://github.com/Ivan-1F)
+- For phichain-converter, allowing legacy formats to be compatible with modern-day programs.
+
+Phigros, by [Pigeon Games](https://space.bilibili.com/414149787)
+- For the original game.
