@@ -1,5 +1,5 @@
 # Phigros Chart Downloader
-###### Note: This project relies on [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) for assets.
+###### Note: This project relies on [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) for assets, a repository not owned by me. Please don't create issues/contact me about newer songs/charts not being added yet 👍
 
 This project allows you to explore Phigros assets by song (raw audio, illustrations, and chart files). You have the option to export assets individually, as a Phira/RPE compatible 'PEZ' file, or all in a 'ZIP' archive.
 
