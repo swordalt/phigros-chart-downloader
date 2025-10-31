@@ -1,7 +1,7 @@
 # Phigros Chart Downloader
 ###### Note: This project relies on [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) for assets, a repository not owned by me. There is a box telling you what version of the game the website has been updated to. Don't create issues about new songs not in the website. Thanks!
 
-This project allows you to explore various level assets (chart file, music, illustration) in Phigros. You may export any difficulty of any song as a playable 'PEZ' file (compatible with Phira and RPE), or all assets for a song in a 'ZIP' archive. 
+This project allows you to export charts from official Phigros as a Phira/RPE-compatible 'PEZ' file. There is also the option to download individual assets, or to export every asset for a song in a 'ZIP' archive.
 
 Use it here: https://swordalt.github.io/phigros-chart-downloader/
 
