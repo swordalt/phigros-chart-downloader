@@ -14,6 +14,8 @@ Use it here: **https://swordalt.github.io/phigros-chart-downloader**
 
 Read the wiki for usage/contribution information: **[TBA]**
 
+List of compatible programs: **[TBA]**
+
 ## Disclaimers
 
 1. This project is not in any way affiliated with Pigeon Games and therefore Phigros.
