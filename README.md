@@ -6,7 +6,7 @@
 > This project relies on a 3rd-party repository for assets. Refrain from making issues here about new songs not being added.
 
 > [!TIP]
-> Most charts will have visual bugs when played in Phira. This is because of Phira's limited support for the official Phigros format.
+> Most charts will have visual bugs when played in [Phira](github.com/teamflos/phira). Most other chart players may not even support the official format.
 
 ## Usage
 
