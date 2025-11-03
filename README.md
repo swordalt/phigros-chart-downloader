@@ -1,53 +1,30 @@
 # Phigros Chart Downloader
 
-This project allows you to export charts from official Phigros as a Phira/RPE-compatible 'PEZ' file. There is also the option to download individual assets, or to export every asset for a song in a 'ZIP' archive.
+**Phigros Chart Downloader** is a project for exploring and exporting song assets for the rhythm game Phigros.
 
-Use it here: https://swordalt.github.io/phigros-chart-downloader/
+> [!WARNING]
+> This project relies on a 3rd-party repository for assets. Refrain from making issues here about new songs not being added.
 
-> [!NOTE]
-> This project relies on Phigros_Resource for assets, a repository not owned by me. There is a box telling you what version of the game the website has been updated to. Don't create issues about new songs not in the website. Thanks!
+> [!TIP]
+> Most charts will have visual bugs when played in Phira. This is because of Phira's limited support for the official Phigros format.
 
 ## Usage
-Below are the features this project offers, as well as how to use them.
 
-#### Export as Chart
-This allows one to export a playable chart, that can be imported into Phira and RPE. You must select a difficulty first in the "Difficulty" table on the left.
+Use it here: **https://swordalt.github.io/phigros-chart-downloader**
 
-#### Export All Assets
-This allows one to export every asset for the selected song in a 'ZIP' archive.
+Read the wiki for usage/contribution information: **[TBA]**
 
-#### Download Asset
-This allows one to export a singular asset.
+## Disclaimers
 
-## URL Parameters
-Below are the various URL parameters you can use to create a direct link for downloads.
+1. This project is not in any way affiliated with Pigeon Games and therefore Phigros.
+2. No assets are hosted or stored in this repository and website.
 
-'download' = What to download.
-- 'chart', 'asset', 'all_assets'
-
-'songID' = Song's internal ID.
-
-#### Download Chart
-'?download=chart&songID={}&difficulty={}'
-
-'difficulty' = Difficulty
-- 'ez', 'hd', 'in', 'at'
-
-#### Download Singular Asset
-'?download=asset&songID={}&type={}'
-
-'type' = What asset.
-- 'audio', 'illust', 'c_ez', 'c_hd', 'c_in', 'c_at'
-
-Ex: https://swordalt.github.io/phigros-chart-downloader?download=asset&songID=QZKagoRequiem.tpazolite&type=audio
-- Downloads audio of QZKago Requiem.
-
-### Credits
+## Credits
 [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
-- For providing decompiled assets and files.
+- For providing unmodified decompiled assets and files from Phigros.
 
 [phichain](https://github.com/Ivan-1F/phichain), by [Ivan-1F](https://github.com/Ivan-1F)
-- For phichain-converter, allowing legacy formats to be compatible with modern-day programs.
+- For phichain-converter, allowing legacy charts to be converted to the modern v3 format.
 
 Phigros, by [Pigeon Games](https://space.bilibili.com/414149787)
-- For the original game.
+- For the base and original game.
