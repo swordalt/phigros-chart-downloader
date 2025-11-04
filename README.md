@@ -16,10 +16,11 @@ Read the wiki for usage/contribution information: **[TBA]**
 
 List of compatible programs: **[TBA]**
 
-## Disclaimers
+## Notes
 
 1. This project is not in any way affiliated with Pigeon Games and therefore Phigros.
 2. No assets are hosted or stored in this repository and website.
+3. Assets are decompiled from the the CN version of Phigros. Region-locked songs are available here.
 
 ## Credits
 [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
