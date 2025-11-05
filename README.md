@@ -1,33 +1,24 @@
-# Phigros Chart Downloader
+# <ins>Phigros Chart Downloader</ins>
 
-**Phigros Chart Downloader** is a project for exploring and exporting song assets for the rhythm game Phigros.
+**Phigros Chart Downloader** is a project for exploring and exporting song assets from the rhythm game Phigros.
 
-> [!WARNING]
-> This project relies on a 3rd-party repository for assets. Refrain from making issues here about new songs not being added.
+> *Refrain from making issues here (or asking directly) about new songs/charts not being available. That is <ins>**outside of my control**</ins>, since a third-party repository (not owned/managed by me) is used for fetching assets.*
 
-> [!TIP]
-> Most charts will have visual bugs when played in [Phira](github.com/teamflos/phira). Most other chart players may not even support the official format.
-
-## Usage
+### <ins>Usage</ins>
 
 Use it here: **https://swordalt.github.io/phigros-chart-downloader**
 
-Read the wiki for usage/contribution information: **[TBA]**
+For advanced information, see the project wiki: **[TBA]**
 
-List of compatible programs: **[TBA]**
-
-## Notes
+### <ins>Notes</ins>
 
 1. This project is not in any way affiliated with Pigeon Games and therefore Phigros.
 2. No assets are hosted or stored in this repository and website.
-3. Assets are decompiled from the the CN version of Phigros, meaning CN-exclusives can be found here.
+3. Assets are decompiled from the CN version of Phigros, meaning region-exclusive songs are available here.
 
-## Credits
+### <ins>Attribution</ins>
 [Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
 - For providing unmodified decompiled assets and files from Phigros.
 
-[phichain](https://github.com/Ivan-1F/phichain), by [Ivan-1F](https://github.com/Ivan-1F)
-- For phichain-converter, allowing legacy charts to be converted to the modern v3 format.
-
 Phigros, by [Pigeon Games](https://space.bilibili.com/414149787)
-- For the base and original game.
+- For the original game.
