@@ -40,4 +40,4 @@ intro: "Phigros Chart Downloader - ${B}"
 holdPartialCover: false
 created: null
 updated: null
-chartUpdated: null`;v.file("info.yml",e)}const S=await v.generateAsync({type:"blob"},C=>{mt.postMessage({type:"progress",progress:C.percent})}),x=N.useZipFormat?"zip":"pez",O=`${ut.name.replace(/\s/g,"_").replace(/[<>:"/\\|?*]/g,"")}_${m}.${x}`;mt.postMessage({type:"complete",blob:S,fileName:O})}})();
+chartUpdated: null`;v.file("info.yml",e)}const S=await v.generateAsync({type:"blob"},C=>{mt.postMessage({type:"progress",progress:C.percent})}),x=N.useZipFormat?"zip":"pez",O=`${ut.name.replace(/\s/g,"_").replace(/[<>:"/\\|?*]/g,"")}_${m}.${x}`;mt.postMessage({type:"complete",blob:S,fileName:O,chartId:r})}})();
