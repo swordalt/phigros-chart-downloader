@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --font-saira: Saira, sans-serif;
+  --color-brand-cyan: #22d3ee;
+  --color-brand-purple: #a855f7;
+  --animate-marquee: marquee 15s linear infinite;
+  --animate-shake: shake 0.2s ease-in-out 0s 2;
+  --animate-fade-in: fadeIn 0.5s ease-in-out;
+  
+  @keyframes marquee {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+.motion-backdrop {
+  animation: backdropIn 180ms ease-out both;
+}
+
+.motion-dialog {
+  animation: dialogIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center;
+}
+
+.motion-dropdown {
+  animation: dropdownIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+
+.motion-dropdown-up {
+  animation: dropdownUpIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: bottom center;
+}
+
+.motion-switch-thumb {
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.35);
+  transition: translate 220ms cubic-bezier(0.16, 1, 0.3, 1), scale 160ms ease, box-shadow 220ms ease;
+}
+
+.motion-switch:active .motion-switch-thumb:not(.motion-switch-thumb-disabled) {
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.45);
+  scale: 1.12 1;
+}
+
+.motion-settings-group {
+  transition: opacity 220ms ease, translate 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdownUpIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-backdrop,
+  .motion-dialog,
+  .motion-dropdown,
+  .motion-dropdown-up {
+    animation: none;
+  }
+
+  .motion-switch-thumb,
+  .motion-settings-group {
+    transition-duration: 1ms;
+  }
+}
