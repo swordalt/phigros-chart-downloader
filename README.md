@@ -1,14 +1,10 @@
-# <ins>Phigros Chart Downloader</ins>
+# Phigros Chart Downloader
 
-**Phigros Chart Downloader** is a project for exploring and exporting song assets from the rhythm game Phigros.
+Phigros Chart Downloader is a project for exporting song assets from the rhythm game Phigros, either individually or as a playable chart.
+## Usage
+Use it at its GitHub pages link: https://swordalt.github.io/phigros-chart-downloader
 
-> *Refrain from making issues here (or asking directly) about new songs/charts not being available. That is <ins>**outside of my control**</ins>, since a third-party repository (not owned/managed by me, see below) is used for fetching assets.*
-
-### <ins>Usage</ins>
-
-Use it here: **https://swordalt.github.io/phigros-chart-downloader**
-
-For advanced information, see the project wiki: **[TBA]**
+Alternatively, download the source and host it locally yourself.
 
 ### <ins>Notes</ins>
 
@@ -16,10 +12,4 @@ For advanced information, see the project wiki: **[TBA]**
 2. No assets or resources are hosted or stored in this repository and website.
 
 ### <ins>Attribution</ins>
-[Phigros_Resource](https://github.com/7aGiven/Phigros_Resource), by [7aGiven](https://github.com/7aGiven)
-- For providing unmodified assets and files from Phigros.
-
-Phigros, by [Pigeon Games](https://space.bilibili.com/414149787)
-- For the original game.
-
-###### Note: Will provide source when project is finalized / complete to a certain degree.
+[Phigros_Resource](https://github.com/7aGiven/Phigros_Resource) by [7aGiven](https://github.com/7aGiven)
