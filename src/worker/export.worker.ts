@@ -143,14 +143,13 @@ Charter: {CHARTER}`;
     zip.file(`${chartId}.png`, illustrationBlob);
     zip.file(`${chartId}.ogg`, audioBlob);
 
-    if (settings.includeInfoYml) {
-        const now = new Date();
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const year = now.getFullYear();
-        const dateStr = `${day}/${month}/${year}`;
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const dateStr = `${day}/${month}/${year}`;
 
-         const ymlContent = `name: ${JSON.stringify(selectedSong.name)}
+    const ymlContent = `name: ${JSON.stringify(selectedSong.name)}
 difficulty: ${difficultyVal}
 level: ${JSON.stringify(levelString)}
 charter: ${JSON.stringify(charter)}
@@ -169,13 +168,12 @@ lineLength: 6.0
 offset: 0.0
 tip: null
 tags: []
-intro: "Phigros Chart Downloader - ${dateStr}" 
+intro: "Phigros Chart Downloader - ${dateStr}"
 holdPartialCover: false
 created: null
 updated: null
 chartUpdated: null`;
-        zip.file("info.yml", ymlContent);
-    }
+    zip.file("info.yml", ymlContent);
 
     const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
         ctx.postMessage({ type: 'progress', progress: metadata.percent });

@@ -55,16 +55,12 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose })
         setSettings(prev => ({ ...prev, useZipFormat: !prev.useZipFormat }));
     };
 
-    const handleToggleInfoYml = () => {
-        setSettings(prev => ({ ...prev, includeInfoYml: !prev.includeInfoYml }));
-    };
-
     const handleChangeExportIllustrationType = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setSettings(prev => ({ ...prev, exportIllustrationType: e.target.value as 'full' | 'blur' }));
     };
 
-    const handleToggleDiscordNotifications = () => {
-        setSettings(prev => ({ ...prev, disableDiscordNotifications: !prev.disableDiscordNotifications }));
+    const handleToggleAnalytics = () => {
+        setSettings(prev => ({ ...prev, analyticsEnabled: !prev.analyticsEnabled }));
     };
 
     const handleToggleUseNewUi = () => {
@@ -147,13 +143,6 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose })
                     </div>
                     <div className="flex items-center justify-between">
                         <div>
-                             <p className="font-semibold text-slate-200">Include 'info.yml'</p>
-                             <p className="text-sm text-slate-400">Adds 'info.yml' to charts for better Phira compatability.</p>
-                        </div>
-                        <ToggleSwitch enabled={settings.includeInfoYml} onChange={handleToggleInfoYml} />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div>
                              <p className="font-semibold text-slate-200">Export Image Type</p>
                              <p className="text-sm text-slate-400">Determines which quality to use for the illustration of exported charts. Recommended to keep it at 'Full Size'.</p>
                         </div>
@@ -168,10 +157,10 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose })
                     </div>
                     <div className="flex items-center justify-between">
                         <div>
-                             <p className="font-semibold text-slate-200">Disable Analytics</p>
-                             <p className="text-sm text-slate-400">Disables anonymous statistics about downloaded charts.<br />(Note: Uses a Discord webhook.)</p>
+                             <p className="font-semibold text-slate-200">Analytics</p>
+                             <p className="text-sm text-slate-400">Sends anonymous statistics about downloaded charts. Disable to only send an anonymized ID instead of the chart name and difficulty.<br />(Note: Uses a Discord webhook.)</p>
                         </div>
-                        <ToggleSwitch enabled={settings.disableDiscordNotifications} onChange={handleToggleDiscordNotifications} />
+                        <ToggleSwitch enabled={settings.analyticsEnabled} onChange={handleToggleAnalytics} />
                     </div>
                     <div className="flex items-center justify-between">
                         <div>

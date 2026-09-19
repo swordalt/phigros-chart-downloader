@@ -1,8 +1,7 @@
 
 export interface Settings {
     useZipFormat: boolean;
-    includeInfoYml: boolean;
-    disableDiscordNotifications: boolean;
+    analyticsEnabled: boolean;
     exportIllustrationType: 'full' | 'blur';
     useNewUi: boolean;
     // New UI Sub-settings
@@ -19,8 +18,7 @@ export interface Settings {
 
 export const defaultSettings: Settings = {
     useZipFormat: false,
-    includeInfoYml: true,
-    disableDiscordNotifications: false,
+    analyticsEnabled: true,
     exportIllustrationType: 'full',
     useNewUi: true,
     newUiAudioPreview: false,

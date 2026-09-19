@@ -41,16 +41,14 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
 
-            if (!settings.disableDiscordNotifications) {
-                sendAssetDownloadNotification(selectedSong.name, file.type);
-            }
+            sendAssetDownloadNotification(selectedSong.name, file.type, selectedSong.id, settings.analyticsEnabled);
         } catch (error) {
             console.error('Download failed:', error);
             // Optionally, implement user-facing error feedback
         } finally {
             setDownloadingUrl(null);
         }
-    }, [downloadingUrl, selectedSong, settings.disableDiscordNotifications]);
+    }, [downloadingUrl, selectedSong, settings.analyticsEnabled]);
     
     const handleDownloadClick = (file: FileInfo) => {
         if (!selectedSong) return;

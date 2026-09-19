@@ -684,10 +684,10 @@ const App: React.FC = () => {
                             }
                         `}>
                             <p>
-                                For more information about this project, view <a href="https://github.com/swordalt/phigros-chart-downloader/" className={`transition-colors duration-200 ${settings.useNewUi ? 'text-brand-cyan hover:text-cyan-300' : 'hover:text-slate-400 underline decoration-slate-600'}`}>https://github.com/swordalt/phigros-chart-downloader/</a>.
+                                Source code is available <a href="https://github.com/swordalt/phigros-chart-downloader/" className={`transition-colors duration-200 ${settings.useNewUi ? 'text-brand-cyan hover:text-cyan-300' : 'hover:text-slate-400 underline decoration-slate-600'}`}>on GitHub</a>. Consider starring the repository if you can.
                             </p>
                             <p className="mt-2">
-                                Project created by 'sword'. | Website refined using AI and other tools.
+                                Project created by 'sword'. | All assets belong to their respective copyright holders.
                             </p>
                         </div>
                     </footer>

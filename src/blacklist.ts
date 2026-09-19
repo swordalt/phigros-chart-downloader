@@ -7,15 +7,10 @@ export interface BlacklistEntry {
 
 export const blacklist: BlacklistEntry[] = [
   {
-    songId: 'StardustRAY.kanonevsBlackY',
+    songId: 'placeholder',
     difficulty: 'IN',
-    reason: "This chart causes Phira to become unresponsive on all devices upon pressing 'Play'."
-  },
-  {
-    songId:'彩.MisoilePunch',
-    difficulty: 'IN',
-    reason: "This chart causes Phira to become unresponsive on all devices upon pressing 'Play'."
-  },
+    reason: "Placeholder text."
+  }
 ];
 
 export const isBlacklisted = (songId: string, difficulty: string): BlacklistEntry | undefined => {

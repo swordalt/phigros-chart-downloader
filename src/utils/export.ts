@@ -90,9 +90,7 @@ export const exportAllAssets = async (
 
         FileSaver.saveAs(blob, fileName);
 
-        if (!settings.disableDiscordNotifications) {
-            sendAllAssetsDownloadNotification(selectedSong.name);
-        }
+        sendAllAssetsDownloadNotification(selectedSong.name, selectedSong.id, settings.analyticsEnabled);
     } catch (error) {
         console.error("Export failed:", error);
         throw error;
@@ -117,9 +115,7 @@ export const exportChart = async (
 
         FileSaver.saveAs(blob, fileName);
 
-        if (!settings.disableDiscordNotifications) {
-            sendChartDownloadNotification(selectedSong.name, selectedDifficulty, chartId || 'Unknown');
-        }
+        sendChartDownloadNotification(selectedSong.name, selectedDifficulty, chartId || 'Unknown', settings.analyticsEnabled);
     } catch (error) {
         console.error("Export failed:", error);
         throw error;

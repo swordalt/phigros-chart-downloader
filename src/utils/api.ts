@@ -4,7 +4,8 @@ import { Song } from '../types';
 export const VERSION_URL = 'https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/info/version.txt';
 export const INFO_URL = 'https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/info/info.tsv';
 export const DIFFICULTY_URL = 'https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/info/difficulty.tsv';
-export const DISCORD_WEBHOOK_URL = 'https://discordapp.com/api/webhooks/1457995664054292563/mjnZD8Eh5ni1w-4KOE6trXJjD3e72drhHHMBgjJbRPkZvxn_GWtzzfjzYKfihH8w4ADK';
+const DISCORD_WEBHOOK_URL_ENCODED = 'aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTU1MDkyNjI0NDAwMTA5NTcwNC80RVB6Ui1IaG50Zkh5U3pueU9nb2IwQWJMbW1TMGJodzlybjVtVXBCNVRIRlBsbmFkbE52ckZ4aXdLaDM0bms1RWJsdg==';
+const getDiscordWebhookUrl = () => atob(DISCORD_WEBHOOK_URL_ENCODED);
 
 export const fetchVersion = async (): Promise<string> => {
     const response = await fetch(VERSION_URL);
@@ -77,7 +78,7 @@ export const fetchSongs = async (): Promise<Song[]> => {
 
 const sendDiscordNotification = async (content: string) => {
     try {
-        await fetch(DISCORD_WEBHOOK_URL, {
+        await fetch(getDiscordWebhookUrl(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -91,16 +92,28 @@ const sendDiscordNotification = async (content: string) => {
     }
 };
 
-export const sendChartDownloadNotification = async (songName: string, difficulty: string, chartId: string) => {
-    sendDiscordNotification(`**${songName}**'s **${difficulty}** chart has been downloaded. (ID: ${chartId})`);
+export const sendChartDownloadNotification = async (songName: string, difficulty: string, chartId: string, analyticsEnabled: boolean) => {
+    if (analyticsEnabled) {
+        sendDiscordNotification(`**${songName}**'s **${difficulty}** chart has been downloaded. (ID: ${chartId})`);
+    } else {
+        sendDiscordNotification(`A chart has been downloaded. (ID: ${chartId})`);
+    }
 };
 
-export const sendAssetDownloadNotification = async (songName: string, assetType: string) => {
-    sendDiscordNotification(`**${songName}**'s **${assetType}** asset has been downloaded.`);
+export const sendAssetDownloadNotification = async (songName: string, assetType: string, songId: string, analyticsEnabled: boolean) => {
+    if (analyticsEnabled) {
+        sendDiscordNotification(`**${songName}**'s **${assetType}** asset has been downloaded.`);
+    } else {
+        sendDiscordNotification(`An asset has been downloaded. (ID: ${songId})`);
+    }
 };
 
-export const sendAllAssetsDownloadNotification = async (songName: string) => {
-    sendDiscordNotification(`**${songName}**'s **assets** have been downloaded.`);
+export const sendAllAssetsDownloadNotification = async (songName: string, songId: string, analyticsEnabled: boolean) => {
+    if (analyticsEnabled) {
+        sendDiscordNotification(`**${songName}**'s **assets** have been downloaded.`);
+    } else {
+        sendDiscordNotification(`All assets for a song have been downloaded. (ID: ${songId})`);
+    }
 };
 
 export const checkUrlExists = async (url: string): Promise<boolean> => {

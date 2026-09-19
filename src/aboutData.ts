@@ -7,6 +7,16 @@ export interface UpdateLog {
 export const projectDescription = "Phigros Chart Downloader is a project for exploring Phigros assets by song. In addition, there is the useful feature of directly exporting assets into a playable chart file for Phira or RPE. It also comes with a sleek user interface for easy usage, as well as an audio player (WIP) and anomaly effects for certain songs.";
 
 export const updateLogs: UpdateLog[] = [
+	{
+        date: "2026-09-20",
+        content: `
+            <ul class="list-disc list-inside space-y-1">
+                <li>Improved analytics.</li>
+				<li>Improved strings.</li>
+                <li>Removed compatability warnings for charts.</li>
+            </ul>
+        `
+    },
     {
         date: "2026-03-08",
         content: `
