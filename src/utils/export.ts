@@ -3,6 +3,7 @@ import FileSaver from 'file-saver';
 import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
 import { sendAllAssetsDownloadNotification, sendChartDownloadNotification } from './api';
+import { ProxySource } from './resourceUrls';
 
 // Worker interface (matching the worker definition)
 interface WorkerResponse {
@@ -21,7 +22,7 @@ interface WorkerResponse {
 type ExportMessage =
     | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song }
     | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings }
-    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number };
+    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource };
 
 const runWorker = (
     message: ExportMessage, 
@@ -125,6 +126,7 @@ export const exportChart = async (
 export const exportBulkAssets = async (
     songs: Song[],
     delaySeconds: number,
+    proxySource: ProxySource,
     onBulkProgress: (currentFile: string, action: 'Downloading' | 'Zipping' | 'Waiting', songsLeft: number, percent?: number) => void,
     signal?: AbortSignal
 ) => {
@@ -132,7 +134,8 @@ export const exportBulkAssets = async (
         const { blob, fileName } = await runWorker({
             type: 'exportBulkAssets',
             songs,
-            delaySeconds
+            delaySeconds,
+            proxySource
         }, undefined, onBulkProgress, signal);
 
         FileSaver.saveAs(blob, fileName);

@@ -1,9 +1,11 @@
+import { ProxySource } from './utils/resourceUrls';
 
 export interface Settings {
     useZipFormat: boolean;
     analyticsEnabled: boolean;
     exportIllustrationType: 'full' | 'blur';
     useNewUi: boolean;
+    proxySource: ProxySource;
     // New UI Sub-settings
     newUiAudioPreview: boolean;
     newUiAudioVolume: number;
@@ -21,6 +23,7 @@ export const defaultSettings: Settings = {
     analyticsEnabled: true,
     exportIllustrationType: 'full',
     useNewUi: true,
+    proxySource: 'github',
     newUiAudioPreview: false,
     newUiAudioVolume: 1,
     newUiLoopAudio: true,

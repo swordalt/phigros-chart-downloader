@@ -1,12 +1,13 @@
 import JSZip from 'jszip';
 import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
+import { ProxySource, getResourceUrl } from '../utils/resourceUrls';
 
 // Define message types for type safety
 export type ExportMessage =
     | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song }
     | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings }
-    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number };
+    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource };
 
 export type WorkerResponse =
     | { type: 'progress'; progress: number }
@@ -25,7 +26,7 @@ ctx.onmessage = async (event: MessageEvent<ExportMessage>) => {
         } else if (type === 'exportChart') {
             await handleExportChart(event.data.files, event.data.selectedSong, event.data.selectedDifficulty, event.data.settings);
         } else if (type === 'exportBulkAssets') {
-            await handleExportBulkAssets(event.data.songs, event.data.delaySeconds);
+            await handleExportBulkAssets(event.data.songs, event.data.delaySeconds, event.data.proxySource);
         }
     } catch (error) {
         ctx.postMessage({ type: 'error', error: error instanceof Error ? error.message : String(error) });
@@ -186,7 +187,7 @@ chartUpdated: null`;
     ctx.postMessage({ type: 'complete', blob: zipBlob, fileName, chartId });
 };
 
-const handleExportBulkAssets = async (songs: Song[], delaySeconds: number) => {
+const handleExportBulkAssets = async (songs: Song[], delaySeconds: number, proxySource: ProxySource) => {
     const zip = new JSZip();
 
     for (let i = 0; i < songs.length; i++) {
@@ -202,10 +203,10 @@ const handleExportBulkAssets = async (songs: Song[], delaySeconds: number) => {
 
         // Files to try fetching
         const filesToTry = [
-            { type: 'Illustration', name: 'illustration.png', url: `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/illustration/${songId}.png` },
-            { type: 'Illustration (Low-Res)', name: 'illustration_low.png', url: `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/illustrationLowRes/${songId}.png` },
-            { type: 'Illustration (Blur)', name: 'illustration_blur.png', url: `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/illustrationBlur/${songId}.png` },
-            { type: 'Audio', name: 'music.ogg', url: `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/music/${songId}.ogg` },
+            { type: 'Illustration', name: 'illustration.png', url: getResourceUrl(proxySource, 'illustration', `${songId}.png`) },
+            { type: 'Illustration (Low-Res)', name: 'illustration_low.png', url: getResourceUrl(proxySource, 'illustrationLowRes', `${songId}.png`) },
+            { type: 'Illustration (Blur)', name: 'illustration_blur.png', url: getResourceUrl(proxySource, 'illustrationBlur', `${songId}.png`) },
+            { type: 'Audio', name: 'music.ogg', url: getResourceUrl(proxySource, 'music', `${songId}.ogg`) },
         ];
 
         const difficulties = ['EZ', 'HD', 'IN', 'AT'];
@@ -213,7 +214,7 @@ const handleExportBulkAssets = async (songs: Song[], delaySeconds: number) => {
             filesToTry.push({
                 type: `Chart (${diff})`,
                 name: `${diff}.json`,
-                url: `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/chart/${songId}.0/${diff}.json`
+                url: getResourceUrl(proxySource, 'chart', `${songId}.0/${diff}.json`)
             });
         });
 

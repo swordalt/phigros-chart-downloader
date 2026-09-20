@@ -10,6 +10,7 @@ import { isBlacklisted, BlacklistEntry } from './blacklist';
 import { SettingsPopup } from './components/SettingsPopup';
 import { FAQPopup } from './components/FAQPopup';
 import { AboutPopup } from './components/AboutPopup';
+import { ProxyPopup } from './components/ProxyPopup';
 import { useSettings } from './contexts/SettingsContext';
 import { AudioVisualizer } from './components/AudioVisualizer';
 import { getSongEffect } from './song-effects';
@@ -18,6 +19,7 @@ import { AudioPlayerControl } from './components/AudioPlayerControl';
 import { Song, FileInfo, SortConfig } from './types';
 import { fetchVersion, fetchSongs } from './utils/api';
 import { exportAllAssets, exportChart, exportBulkAssets } from './utils/export';
+import { getResourceUrl } from './utils/resourceUrls';
 
 const App: React.FC = () => {
     const { settings } = useSettings();
@@ -49,6 +51,7 @@ const App: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFaqOpen, setIsFaqOpen] = useState(false);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
+    const [isProxyOpen, setIsProxyOpen] = useState(false);
     
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -85,7 +88,7 @@ const App: React.FC = () => {
             setIsLoadingVersion(true);
             setErrorVersion(null);
             try {
-                const ver = await fetchVersion();
+                const ver = await fetchVersion(settings.proxySource);
                 setVersion(ver);
             } catch (err) {
                 setErrorVersion(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -95,14 +98,14 @@ const App: React.FC = () => {
             }
         };
         loadVersion();
-    }, []);
+    }, [settings.proxySource]);
 
     useEffect(() => {
         const loadSongs = async () => {
             setIsLoadingSongs(true);
             setErrorSongs(null);
             try {
-                const fetchedSongs = await fetchSongs();
+                const fetchedSongs = await fetchSongs(settings.proxySource);
                 setSongs(fetchedSongs);
             } catch (err) {
                 setErrorSongs(err instanceof Error ? err.message : 'An error occurred while fetching songs.');
@@ -112,7 +115,7 @@ const App: React.FC = () => {
             }
         };
         loadSongs();
-    }, []);
+    }, [settings.proxySource]);
 
     useEffect(() => {
         return () => {
@@ -157,8 +160,8 @@ const App: React.FC = () => {
         }
 
         const songId = selectedSong.id;
-        const illustrationUrl = `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/illustration/${songId}.png`;
-        
+        const illustrationUrl = getResourceUrl(settings.proxySource, 'illustration', `${songId}.png`);
+
         // Reset loaded state for smooth transition
         setIsBgLoaded(false);
         
@@ -176,7 +179,7 @@ const App: React.FC = () => {
 
         // Audio Setup - Only if preview is enabled
         if (settings.newUiAudioPreview) {
-            const audioUrl = `https://raw.githubusercontent.com/7aGiven/Phigros_Resource/refs/heads/music/${songId}.ogg`;
+            const audioUrl = getResourceUrl(settings.proxySource, 'music', `${songId}.ogg`);
             const audio = new Audio();
             // IMPORTANT: Must set crossOrigin to anonymous BEFORE loading to allow Web Audio API analysis
             audio.crossOrigin = "anonymous"; 
@@ -205,7 +208,7 @@ const App: React.FC = () => {
         return () => {
             // No cleanup needed for activeAudio here as setActiveAudio logic handles pause
         };
-    }, [selectedSong, settings.useNewUi, settings.newUiAudioPreview, settings.bulkDownloadMode]);
+    }, [selectedSong, settings.useNewUi, settings.newUiAudioPreview, settings.bulkDownloadMode, settings.proxySource]);
 
     // Update audio loop property immediately when setting changes
     useEffect(() => {
@@ -318,7 +321,7 @@ const App: React.FC = () => {
 
         try {
             const delaySeconds = parseFloat(bulkDelay) || 0;
-            await exportBulkAssets(songsToExport, delaySeconds, (currentFile, action, songsLeft, percent) => {
+            await exportBulkAssets(songsToExport, delaySeconds, settings.proxySource, (currentFile, action, songsLeft, percent) => {
                 setBulkExportState(prev => ({
                     ...prev,
                     currentFile,
@@ -420,6 +423,7 @@ const App: React.FC = () => {
             {isSettingsOpen && <SettingsPopup isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
             {isFaqOpen && <FAQPopup isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />}
             {isAboutOpen && <AboutPopup isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
+            {isProxyOpen && <ProxyPopup isOpen={isProxyOpen} onClose={() => setIsProxyOpen(false)} />}
             {blacklistWarning && (
                 <BlacklistWarningPopup 
                     isOpen={!!blacklistWarning}
@@ -445,10 +449,11 @@ const App: React.FC = () => {
                  </div>
 
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-                    <Header 
-                        onSettingsClick={() => setIsSettingsOpen(true)} 
+                    <Header
+                        onSettingsClick={() => setIsSettingsOpen(true)}
                         onFaqClick={() => setIsFaqOpen(true)}
                         onAboutClick={() => setIsAboutOpen(true)}
+                        onProxyClick={() => setIsProxyOpen(true)}
                     />
 
                     {!settings.bulkDownloadMode && (
