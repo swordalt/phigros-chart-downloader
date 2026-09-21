@@ -6,6 +6,7 @@ import { Song, FileInfo } from '../types';
 import { checkUrlExists, sendAssetDownloadNotification } from '../utils/api';
 import { ArrowDownTrayIcon, AudioIcon, DocumentTextIcon, PhotoIcon, InformationCircleIcon } from './Icons';
 import { useSettings } from '../contexts/SettingsContext';
+import { useResourceError } from '../contexts/ResourceErrorContext';
 import { getResourceUrl } from '../utils/resourceUrls';
 
 interface FileTableProps {
@@ -15,6 +16,7 @@ interface FileTableProps {
 
 export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound }) => {
     const { settings } = useSettings();
+    const { reportResourceError } = useResourceError();
     const [files, setFiles] = useState<FileInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
@@ -45,11 +47,15 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
             sendAssetDownloadNotification(selectedSong.name, file.type, selectedSong.id, settings.analyticsEnabled);
         } catch (error) {
             console.error('Download failed:', error);
-            // Optionally, implement user-facing error feedback
+            reportResourceError(
+                `Failed to download "${file.name}".`,
+                () => executeDownload(file, downloadName),
+                error instanceof Error ? error.message : undefined
+            );
         } finally {
             setDownloadingUrl(null);
         }
-    }, [downloadingUrl, selectedSong, settings.analyticsEnabled]);
+    }, [downloadingUrl, selectedSong, settings.analyticsEnabled, reportResourceError]);
     
     const handleDownloadClick = (file: FileInfo) => {
         if (!selectedSong) return;

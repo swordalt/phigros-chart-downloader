@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ResourceErrorProvider } from './contexts/ResourceErrorContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,7 +15,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <SettingsProvider>
-      <App />
+      <ResourceErrorProvider>
+        <App />
+      </ResourceErrorProvider>
     </SettingsProvider>
   </React.StrictMode>
 );

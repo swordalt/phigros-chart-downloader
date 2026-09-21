@@ -11,7 +11,9 @@ import { SettingsPopup } from './components/SettingsPopup';
 import { FAQPopup } from './components/FAQPopup';
 import { AboutPopup } from './components/AboutPopup';
 import { ProxyPopup } from './components/ProxyPopup';
+import { ResourceErrorPopup } from './components/ResourceErrorPopup';
 import { useSettings } from './contexts/SettingsContext';
+import { useResourceError } from './contexts/ResourceErrorContext';
 import { AudioVisualizer } from './components/AudioVisualizer';
 import { getSongEffect } from './song-effects';
 import { SongEffectRenderer } from './components/SongEffectRenderer';
@@ -23,6 +25,7 @@ import { getResourceUrl } from './utils/resourceUrls';
 
 const App: React.FC = () => {
     const { settings } = useSettings();
+    const { reportResourceError } = useResourceError();
     const [version, setVersion] = useState<string | null>(null);
     const [isLoadingVersion, setIsLoadingVersion] = useState<boolean>(true);
     const [errorVersion, setErrorVersion] = useState<string | null>(null);
@@ -83,38 +86,46 @@ const App: React.FC = () => {
         return result;
     }, [songs, sortConfig]);
 
+    const loadVersion = useCallback(async () => {
+        setIsLoadingVersion(true);
+        setErrorVersion(null);
+        try {
+            const ver = await fetchVersion(settings.proxySource);
+            setVersion(ver);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setErrorVersion(message);
+            console.error(err);
+            reportResourceError('Failed to load the version info.', () => loadVersion(), message);
+        } finally {
+            setIsLoadingVersion(false);
+        }
+    }, [settings.proxySource, reportResourceError]);
+
+    const loadSongs = useCallback(async () => {
+        setIsLoadingSongs(true);
+        setErrorSongs(null);
+        try {
+            const fetchedSongs = await fetchSongs(settings.proxySource);
+            setSongs(fetchedSongs);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'An error occurred while fetching songs.';
+            setErrorSongs(message);
+            console.error(err);
+            reportResourceError('Failed to load the song list.', () => loadSongs(), message);
+        } finally {
+            setIsLoadingSongs(false);
+        }
+    }, [settings.proxySource, reportResourceError]);
+
     useEffect(() => {
-        const loadVersion = async () => {
-            setIsLoadingVersion(true);
-            setErrorVersion(null);
-            try {
-                const ver = await fetchVersion(settings.proxySource);
-                setVersion(ver);
-            } catch (err) {
-                setErrorVersion(err instanceof Error ? err.message : 'An unknown error occurred.');
-                console.error(err);
-            } finally {
-                setIsLoadingVersion(false);
-            }
-        };
         loadVersion();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings.proxySource]);
 
     useEffect(() => {
-        const loadSongs = async () => {
-            setIsLoadingSongs(true);
-            setErrorSongs(null);
-            try {
-                const fetchedSongs = await fetchSongs(settings.proxySource);
-                setSongs(fetchedSongs);
-            } catch (err) {
-                setErrorSongs(err instanceof Error ? err.message : 'An error occurred while fetching songs.');
-                console.error(err);
-            } finally {
-                setIsLoadingSongs(false);
-            }
-        };
         loadSongs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings.proxySource]);
 
     useEffect(() => {
@@ -253,7 +264,11 @@ const App: React.FC = () => {
             });
         } catch (error) {
             console.error("Failed to export all assets: ", error);
-            alert("An error has occured. Check the console for more information.");
+            reportResourceError(
+                'Failed to export all assets.',
+                () => executeAllAssetsExport(),
+                error instanceof Error ? error.message : undefined
+            );
         } finally {
             setExportState({ type: null, progress: 0 });
         }
@@ -269,7 +284,11 @@ const App: React.FC = () => {
             });
         } catch (error) {
             console.error("Failed to export as chart: ", error);
-            alert("An error has occured. Check the console for more information.");
+            reportResourceError(
+                'Failed to export the chart.',
+                () => executeChartExport(),
+                error instanceof Error ? error.message : undefined
+            );
         } finally {
             setExportState({ type: null, progress: 0 });
         }
@@ -335,7 +354,11 @@ const App: React.FC = () => {
                 // Ignore abort errors
             } else {
                 console.error("Bulk export failed: ", error);
-                alert("An error has occurred during bulk export. Check the console for more information.");
+                reportResourceError(
+                    'Failed during bulk export.',
+                    () => handleBulkExport(),
+                    error instanceof Error ? error.message : undefined
+                );
             }
         } finally {
             setBulkExportState({
@@ -424,6 +447,7 @@ const App: React.FC = () => {
             {isFaqOpen && <FAQPopup isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />}
             {isAboutOpen && <AboutPopup isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
             {isProxyOpen && <ProxyPopup isOpen={isProxyOpen} onClose={() => setIsProxyOpen(false)} />}
+            <ResourceErrorPopup onSwitchProxy={() => setIsProxyOpen(true)} />
             {blacklistWarning && (
                 <BlacklistWarningPopup 
                     isOpen={!!blacklistWarning}
