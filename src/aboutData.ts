@@ -8,6 +8,15 @@ export const projectDescription = "Phigros Chart Downloader is a project for exp
 
 export const updateLogs: UpdateLog[] = [
 	{
+        date: "2026-09-24",
+        content: `
+            <ul class="list-disc list-inside space-y-1">
+                <li>Add proxy feature & suggestion popup.</li>
+				<li>Improved the file table.</li>
+            </ul>
+        `
+    },
+	{
         date: "2026-09-20",
         content: `
             <ul class="list-disc list-inside space-y-1">

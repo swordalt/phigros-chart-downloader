@@ -12,9 +12,12 @@ import { getResourceUrl } from '../utils/resourceUrls';
 interface FileTableProps {
     selectedSong: Song | null;
     onFilesFound: (files: FileInfo[]) => void;
+    onExportAllAssets: () => void;
+    isExporting: boolean;
+    exportState: { type: 'phira' | 'chart' | null; progress: number };
 }
 
-export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound }) => {
+export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound, onExportAllAssets, isExporting, exportState }) => {
     const { settings } = useSettings();
     const { reportResourceError } = useResourceError();
     const [files, setFiles] = useState<FileInfo[]>([]);
@@ -331,10 +334,10 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                 onCancel={handleWarningCancel}
             />
             <div className="relative w-full mx-auto rounded-xl border border-slate-700 bg-slate-800/50 shadow-lg backdrop-blur-sm">
-                 <div className="px-6 py-4 border-b border-slate-700 rounded-t-xl">
+                 <div className="px-6 py-4 border-b border-slate-700 rounded-t-xl flex flex-wrap items-center justify-between gap-4">
                     <h3 className="font-bold text-lg text-slate-200 flex flex-wrap items-center gap-2">
                         <span>Available Files for <span className="text-brand-cyan">{selectedSong.name}</span></span>
-                        
+
                         {settings.advancedInfo && (
                             <div className="group relative inline-flex items-center">
                                 <button type="button" className="focus:outline-none" aria-label="Show Song ID">
@@ -350,6 +353,31 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                             </div>
                         )}
                     </h3>
+                    <button
+                        type="button"
+                        onClick={onExportAllAssets}
+                        disabled={isExporting || files.length === 0}
+                        className={`relative overflow-hidden px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 min-w-[190px] ${
+                            isExporting || files.length === 0
+                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                : 'bg-indigo-700 hover:bg-indigo-800 text-white'
+                        }`}
+                    >
+                        {exportState.type === 'phira' ? (
+                            <>
+                                <Spinner />
+                                <span>Exporting...</span>
+                            </>
+                        ) : (
+                            'Export All Assets'
+                        )}
+                        {exportState.type === 'phira' && (
+                            <div
+                                className="absolute bottom-0 left-0 h-0.5 bg-brand-cyan/75 transition-all duration-150"
+                                style={{ width: `${exportState.progress.toFixed(0)}%` }}
+                            />
+                        )}
+                    </button>
                 </div>
                 {renderContent()}
             </div>

@@ -43,7 +43,7 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
     };
 
     return (
-        <div ref={wrapperRef} className="relative w-48">
+        <div ref={wrapperRef} className="relative w-32">
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}

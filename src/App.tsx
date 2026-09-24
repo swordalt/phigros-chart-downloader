@@ -619,7 +619,13 @@ const App: React.FC = () => {
                             )}
 
                            <div className="relative z-30 mt-4 w-full max-w-4xl">
-                                <FileTable selectedSong={selectedSong} onFilesFound={handleFilesFound} />
+                                <FileTable
+                                    selectedSong={selectedSong}
+                                    onFilesFound={handleFilesFound}
+                                    onExportAllAssets={handleExportAllAssets}
+                                    isExporting={isExporting}
+                                    exportState={exportState}
+                                />
                                 {selectedSong && availableDifficulties.length > 0 && (
                                     <div className="relative mt-6">
                                         {showDifficultyWarning && (
@@ -654,35 +660,10 @@ const App: React.FC = () => {
                                                         <span>Exporting...</span>
                                                     </>
                                                 ) : (
-                                                    'Export as Chart'
+                                                    'Export for Phira & RPE'
                                                 )}
                                                 {exportState.type === 'chart' && (
-                                                    <div 
-                                                        className="absolute bottom-0 left-0 h-0.5 bg-brand-cyan/75 transition-all duration-150"
-                                                        style={{ width: `${exportState.progress.toFixed(0)}%` }}
-                                                    />
-                                                )}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleExportAllAssets}
-                                                disabled={!selectedSong || isExporting || files.length === 0}
-                                                className={`relative overflow-hidden px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 min-w-[190px] ${
-                                                    !selectedSong || isExporting || files.length === 0
-                                                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                                        : 'bg-indigo-700 hover:bg-indigo-800 text-white'
-                                                }`}
-                                            >
-                                                {exportState.type === 'phira' ? (
-                                                    <>
-                                                        <Spinner />
-                                                        <span>Exporting...</span>
-                                                    </>
-                                                ) : (
-                                                    'Export All Assets'
-                                                )}
-                                                {exportState.type === 'phira' && (
-                                                    <div 
+                                                    <div
                                                         className="absolute bottom-0 left-0 h-0.5 bg-brand-cyan/75 transition-all duration-150"
                                                         style={{ width: `${exportState.progress.toFixed(0)}%` }}
                                                     />
