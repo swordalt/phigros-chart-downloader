@@ -21,7 +21,7 @@ import { AudioPlayerControl } from './components/AudioPlayerControl';
 import { Song, FileInfo, SortConfig } from './types';
 import { fetchVersion, fetchSongs } from './utils/api';
 import { exportAllAssets, exportChart, exportBulkAssets } from './utils/export';
-import { getResourceUrl } from './utils/resourceUrls';
+import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from './utils/resourceUrls';
 
 const App: React.FC = () => {
     const { settings } = useSettings();
@@ -171,7 +171,9 @@ const App: React.FC = () => {
         }
 
         const songId = selectedSong.id;
-        const illustrationUrl = getResourceUrl(settings.proxySource, 'illustration', `${songId}.png`);
+        const illustrationUrl = hasPerDifficultyIllustrations(songId)
+            ? getDifficultyIllustrationUrl(settings.proxySource, songId, 'AT')
+            : getResourceUrl(settings.proxySource, 'illustration', `${songId}.png`);
 
         // Reset loaded state for smooth transition
         setIsBgLoaded(false);
@@ -619,15 +621,8 @@ const App: React.FC = () => {
                             )}
 
                            <div className="relative z-30 mt-4 w-full max-w-4xl">
-                                <FileTable
-                                    selectedSong={selectedSong}
-                                    onFilesFound={handleFilesFound}
-                                    onExportAllAssets={handleExportAllAssets}
-                                    isExporting={isExporting}
-                                    exportState={exportState}
-                                />
                                 {selectedSong && availableDifficulties.length > 0 && (
-                                    <div className="relative mt-6">
+                                    <div className="relative mb-6">
                                         {showDifficultyWarning && (
                                             <div
                                                 role="alert"
@@ -672,6 +667,13 @@ const App: React.FC = () => {
                                         </div>
                                     </div>
                                 )}
+                                <FileTable
+                                    selectedSong={selectedSong}
+                                    onFilesFound={handleFilesFound}
+                                    onExportAllAssets={handleExportAllAssets}
+                                    isExporting={isExporting}
+                                    exportState={exportState}
+                                />
                            </div>
                         </div>
                         )}

@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
-import { ProxySource, getResourceUrl } from '../utils/resourceUrls';
+import { ProxySource, getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from '../utils/resourceUrls';
 
 // Define message types for type safety
 export type ExportMessage =
@@ -51,6 +51,8 @@ const handleExportAllAssets = async (files: FileInfo[], selectedSong: Song) => {
         const fileInfo = files[index];
         if (fileInfo.type === 'Illustration') {
             zip.file('illustration.png', blob);
+        } else if (/^Illustration \((EZ|HD|IN|AT)\)$/.test(fileInfo.type)) {
+            zip.file(`illustration_${fileInfo.type.slice(14, 16)}.png`, blob);
         } else if (fileInfo.type === 'Audio') {
             zip.file('music.ogg', blob);
         } else if (fileInfo.type.startsWith('Chart')) {
@@ -82,7 +84,12 @@ const handleExportChart = async (
     if (settings.exportIllustrationType === 'blur') {
         illustrationFile = files.find(f => f.type === 'Illustration (Blur)');
     }
-    
+
+    // Song-specific illustration for this difficulty
+    if (!illustrationFile) {
+        illustrationFile = files.find(f => f.type === `Illustration (${selectedDifficulty})`);
+    }
+
     // Fallback to Full Size if blur isn't selected or not found
     if (!illustrationFile) {
         illustrationFile = files.find(f => f.type === 'Illustration');
@@ -210,6 +217,15 @@ const handleExportBulkAssets = async (songs: Song[], delaySeconds: number, proxy
         ];
 
         const difficulties = ['EZ', 'HD', 'IN', 'AT'];
+        if (hasPerDifficultyIllustrations(songId)) {
+            difficulties.forEach(diff => {
+                filesToTry.push({
+                    type: `Illustration (${diff})`,
+                    name: `illustration_${diff}.png`,
+                    url: getDifficultyIllustrationUrl(proxySource, songId, diff)
+                });
+            });
+        }
         difficulties.forEach(diff => {
             filesToTry.push({
                 type: `Chart (${diff})`,

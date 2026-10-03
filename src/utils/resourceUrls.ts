@@ -33,3 +33,18 @@ export function getResourceUrl(proxySource: ProxySource, branch: string, path: s
             return rawUrl;
     }
 }
+
+// Songs whose illustration differs per difficulty (stored as `${songId}_${diff}.png`).
+const PER_DIFFICULTY_ILLUSTRATION_SONGS = new Set([
+    'WhatdoyouwantmorethanaHappyending.Apo11oHALOprogramft安月名莉子大瀬良あい',
+]);
+
+export const ILLUSTRATION_DIFFICULTIES = ['EZ', 'HD', 'IN', 'AT'];
+
+export function hasPerDifficultyIllustrations(songId: string): boolean {
+    return PER_DIFFICULTY_ILLUSTRATION_SONGS.has(songId);
+}
+
+export function getDifficultyIllustrationUrl(proxySource: ProxySource, songId: string, difficulty: string): string {
+    return getResourceUrl(proxySource, 'illustration', `${songId}_${difficulty}.png`);
+}

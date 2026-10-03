@@ -4,10 +4,10 @@ import { Spinner } from './Spinner';
 import { AssetDownloadWarningPopup } from './AssetDownloadWarningPopup';
 import { Song, FileInfo } from '../types';
 import { checkUrlExists, sendAssetDownloadNotification } from '../utils/api';
-import { ArrowDownTrayIcon, AudioIcon, DocumentTextIcon, PhotoIcon, InformationCircleIcon } from './Icons';
+import { ArrowDownTrayIcon, AudioIcon, DocumentTextIcon, PhotoIcon, InformationCircleIcon, ChevronDownIcon } from './Icons';
 import { useSettings } from '../contexts/SettingsContext';
 import { useResourceError } from '../contexts/ResourceErrorContext';
-import { getResourceUrl } from '../utils/resourceUrls';
+import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl, ILLUSTRATION_DIFFICULTIES } from '../utils/resourceUrls';
 
 interface FileTableProps {
     selectedSong: Song | null;
@@ -23,6 +23,7 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
     const [files, setFiles] = useState<FileInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+    const [isCollapsed, setIsCollapsed] = useState(true);
 
     // New state for warning popup
     const [showAssetWarning, setShowAssetWarning] = useState(false);
@@ -125,6 +126,21 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                     return null;
                 })()
             );
+
+            // Add per-difficulty illustrations (song-specific)
+            if (hasPerDifficultyIllustrations(songId)) {
+                ILLUSTRATION_DIFFICULTIES.forEach(diff => {
+                    filesToFind.push(
+                        (async () => {
+                            const url = getDifficultyIllustrationUrl(settings.proxySource, songId, diff);
+                            if (await checkUrl(url)) {
+                                return { type: `Illustration (${diff})`, name: `${songId}_${diff}.png`, url };
+                            }
+                            return null;
+                        })()
+                    );
+                });
+            }
 
             // Add low-res illustration
             filesToFind.push(
@@ -334,9 +350,18 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                 onCancel={handleWarningCancel}
             />
             <div className="relative w-full mx-auto rounded-xl border border-slate-700 bg-slate-800/50 shadow-lg backdrop-blur-sm">
-                 <div className="px-6 py-4 border-b border-slate-700 rounded-t-xl flex flex-wrap items-center justify-between gap-4">
+                 <div className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 ${isCollapsed ? 'rounded-xl' : 'border-b border-slate-700 rounded-t-xl'}`}>
                     <h3 className="font-bold text-lg text-slate-200 flex flex-wrap items-center gap-2">
-                        <span>Available Files for <span className="text-brand-cyan">{selectedSong.name}</span></span>
+                        <button
+                            type="button"
+                            onClick={() => setIsCollapsed(c => !c)}
+                            aria-expanded={!isCollapsed}
+                            aria-label={isCollapsed ? 'Expand file table' : 'Collapse file table'}
+                            className="flex items-center gap-2 text-left hover:text-white transition-colors duration-200 focus:outline-none"
+                        >
+                            <ChevronDownIcon className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                            <span>Individual Files for <span className="text-brand-cyan">{selectedSong.name}</span></span>
+                        </button>
 
                         {settings.advancedInfo && (
                             <div className="group relative inline-flex items-center">
@@ -379,7 +404,7 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                         )}
                     </button>
                 </div>
-                {renderContent()}
+                {!isCollapsed && renderContent()}
             </div>
         </>
     );
