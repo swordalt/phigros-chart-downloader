@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Spinner } from './Spinner';
+import { CustomScrollbar } from './CustomScrollbar';
 import { songNameAliases } from '../song-aliases';
 import { useSettings } from '../contexts/SettingsContext';
 import { getSongEffect } from '../song-effects';
@@ -206,40 +207,43 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
                                 Did you mean:
                             </div>
                         )}
-                        <ul ref={parentRef} className="max-h-60 overflow-y-auto relative" role="listbox">
-                            {displayedSongs.length > 0 ? (
-                                <div
-                                    style={{
-                                        height: `${rowVirtualizer.getTotalSize()}px`,
-                                        width: '100%',
-                                        position: 'relative',
-                                    }}
-                                >
-                                    {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                                        const song = displayedSongs[virtualItem.index];
-                                        const hasEffect = settings.useNewUi && settings.newUiSongSpecificEffects && getSongEffect(song.name);
-                                        return (
-                                            <li
-                                                key={virtualItem.key}
-                                                className="px-4 py-2.5 cursor-pointer text-slate-300 hover:bg-brand-cyan/20 hover:text-white transition-colors duration-150 flex items-center justify-between absolute top-0 left-0 w-full"
-                                                style={{
-                                                    height: `${virtualItem.size}px`,
-                                                    transform: `translateY(${virtualItem.start}px)`,
-                                                }}
-                                                onClick={() => handleSelectSong(song)}
-                                                role="option"
-                                                aria-selected={selectedSong?.id === song.id}
-                                            >
-                                                <span>{song.name}</span>
-                                                {hasEffect && <span className="text-yellow-400 text-sm ml-2">✨</span>}
-                                            </li>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <li className="px-4 py-3 text-center text-slate-500">No songs found.</li>
-                            )}
-                        </ul>
+                        <div className="relative">
+                            <ul ref={parentRef} className="max-h-60 overflow-y-auto relative" role="listbox">
+                                {displayedSongs.length > 0 ? (
+                                    <div
+                                        style={{
+                                            height: `${rowVirtualizer.getTotalSize()}px`,
+                                            width: '100%',
+                                            position: 'relative',
+                                        }}
+                                    >
+                                        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+                                            const song = displayedSongs[virtualItem.index];
+                                            const hasEffect = settings.useNewUi && settings.newUiSongSpecificEffects && getSongEffect(song.name);
+                                            return (
+                                                <li
+                                                    key={virtualItem.key}
+                                                    className="px-4 py-2.5 cursor-pointer text-slate-300 hover:bg-brand-cyan/20 hover:text-white transition-colors duration-150 flex items-center justify-between absolute top-0 left-0 w-full"
+                                                    style={{
+                                                        height: `${virtualItem.size}px`,
+                                                        transform: `translateY(${virtualItem.start}px)`,
+                                                    }}
+                                                    onClick={() => handleSelectSong(song)}
+                                                    role="option"
+                                                    aria-selected={selectedSong?.id === song.id}
+                                                >
+                                                    <span>{song.name}</span>
+                                                    {hasEffect && <span className="text-yellow-400 text-sm ml-2">✨</span>}
+                                                </li>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <li className="px-4 py-3 text-center text-slate-500">No songs found.</li>
+                                )}
+                            </ul>
+                            <CustomScrollbar scrollRef={parentRef} watch={displayedSongs.length} />
+                        </div>
                     </div>
                 )}
             </div>

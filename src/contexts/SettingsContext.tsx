@@ -15,7 +15,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [settings, setSettings] = useState<Settings>(() => {
         try {
             const storedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-            return storedSettings ? { ...defaultSettings, ...JSON.parse(storedSettings) } : defaultSettings;
+            return storedSettings ? { ...defaultSettings, ...JSON.parse(storedSettings), useNewUi: true } : defaultSettings;
         } catch (error) {
             console.error('Error reading settings from localStorage', error);
             return defaultSettings;

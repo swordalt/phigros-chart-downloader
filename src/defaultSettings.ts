@@ -4,6 +4,8 @@ export interface Settings {
     useZipFormat: boolean;
     analyticsEnabled: boolean;
     exportIllustrationType: 'full' | 'blur';
+    chartFormatConversion: 'none' | 'rpe';
+    chartEasingFitting: boolean;
     useNewUi: boolean;
     proxySource: ProxySource;
     // New UI Sub-settings
@@ -16,12 +18,15 @@ export interface Settings {
     newUiVisualizerOpacity: number;
     newUiSongSpecificEffects: boolean;
     bulkDownloadMode: boolean;
+    advancedInfo: boolean;
 }
 
 export const defaultSettings: Settings = {
     useZipFormat: false,
     analyticsEnabled: true,
     exportIllustrationType: 'full',
+    chartFormatConversion: 'none',
+    chartEasingFitting: false,
     useNewUi: true,
     proxySource: 'github',
     newUiAudioPreview: false,
@@ -33,4 +38,5 @@ export const defaultSettings: Settings = {
     newUiVisualizerOpacity: 60,
     newUiSongSpecificEffects: false,
     bulkDownloadMode: false,
+    advancedInfo: false,
 };

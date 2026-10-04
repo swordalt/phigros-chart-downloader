@@ -87,7 +87,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ isOpen, onClose }) => {
                 {/* Combined Scrollable Container */}
                 <div 
                     ref={parentRef}
-                    className="flex-1 overflow-y-auto custom-scrollbar"
+                    className="flex-1 overflow-y-auto custom-scrollbar scroll-fade"
                 >
                     <div
                         style={{

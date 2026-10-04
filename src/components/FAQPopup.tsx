@@ -63,7 +63,7 @@ export const FAQPopup: React.FC<FAQPopupProps> = ({ isOpen, onClose }) => {
 
                 <div 
                     ref={parentRef} 
-                    className="max-h-[60vh] overflow-y-auto px-6 custom-scrollbar"
+                    className="max-h-[60vh] overflow-y-auto px-6 custom-scrollbar scroll-fade"
                 >
                     <div
                         style={{

@@ -10,10 +10,9 @@ import { isBlacklisted, BlacklistEntry } from './blacklist';
 import { PatchedChartPopup } from './components/PatchedChartPopup';
 import { getPatchedChart, PatchedChartEntry } from './patchedCharts';
 import FileSaver from 'file-saver';
-import { SettingsPopup } from './components/SettingsPopup';
+import { SettingsPopup, SettingsCategory } from './components/SettingsPopup';
 import { FAQPopup } from './components/FAQPopup';
 import { AboutPopup } from './components/AboutPopup';
-import { ProxyPopup } from './components/ProxyPopup';
 import { ResourceErrorPopup } from './components/ResourceErrorPopup';
 import { useSettings } from './contexts/SettingsContext';
 import { useResourceError } from './contexts/ResourceErrorContext';
@@ -59,7 +58,11 @@ const App: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFaqOpen, setIsFaqOpen] = useState(false);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
-    const [isProxyOpen, setIsProxyOpen] = useState(false);
+    const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>('export');
+    const openSettings = (category: SettingsCategory) => {
+        setSettingsCategory(category);
+        setIsSettingsOpen(true);
+    };
     
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -494,11 +497,10 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {isSettingsOpen && <SettingsPopup isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
+            {isSettingsOpen && <SettingsPopup isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialCategory={settingsCategory} />}
             {isFaqOpen && <FAQPopup isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />}
             {isAboutOpen && <AboutPopup isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
-            {isProxyOpen && <ProxyPopup isOpen={isProxyOpen} onClose={() => setIsProxyOpen(false)} />}
-            <ResourceErrorPopup onSwitchProxy={() => setIsProxyOpen(true)} />
+            <ResourceErrorPopup onSwitchProxy={() => openSettings('proxy')} />
             {patchedChartPrompt && (
                 <PatchedChartPopup
                     isOpen={!!patchedChartPrompt}
@@ -534,10 +536,9 @@ const App: React.FC = () => {
 
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
                     <Header
-                        onSettingsClick={() => setIsSettingsOpen(true)}
+                        onSettingsClick={() => openSettings('export')}
                         onFaqClick={() => setIsFaqOpen(true)}
                         onAboutClick={() => setIsAboutOpen(true)}
-                        onProxyClick={() => setIsProxyOpen(true)}
                     />
 
                     {!settings.bulkDownloadMode && (

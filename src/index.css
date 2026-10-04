@@ -115,3 +115,20 @@
     transition-duration: 1ms;
   }
 }
+
+/* Hide all scrollbars (scrolling still works) */
+* {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+    display: none;
+}
+
+/* Always-on bottom fade as a scroll hint; padding lets the last item scroll clear of it */
+.scroll-fade {
+    padding-bottom: 2rem;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+}

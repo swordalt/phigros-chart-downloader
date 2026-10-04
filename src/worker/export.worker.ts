@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
 import { ProxySource, getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from '../utils/resourceUrls';
+import { OfficialChart, officialToRpe } from '../utils/chartConverter';
 
 // Define message types for type safety
 export type ExportMessage =
@@ -145,9 +146,24 @@ Charter: {CHARTER}`;
         fetch(audioFile.url).then(res => res.blob()),
     ]);
 
+    const convertToRpe = settings.chartFormatConversion === 'rpe';
+    let chartData: Blob | string = chartBlob;
+    if (convertToRpe) {
+        const official: OfficialChart = JSON.parse(await chartBlob.text());
+        chartData = JSON.stringify(officialToRpe(official, {
+            name: selectedSong.name,
+            level: levelString,
+            charter,
+            composer: selectedSong.composer,
+            song: `${chartId}.ogg`,
+            background: `${chartId}.png`,
+            id: chartId,
+        }, { easingFitting: settings.chartEasingFitting }));
+    }
+
     const zip = new JSZip();
     zip.file("info.txt", infoContent);
-    zip.file(`${chartId}.json`, chartBlob);
+    zip.file(`${chartId}.json`, chartData);
     zip.file(`${chartId}.png`, illustrationBlob);
     zip.file(`${chartId}.ogg`, audioBlob);
 
@@ -164,7 +180,7 @@ charter: ${JSON.stringify(charter)}
 composer: ${JSON.stringify(selectedSong.composer)}
 illustrator: "Phigros"
 chart: "${chartId}.json"
-format: null
+format: ${convertToRpe ? '"rpe"' : 'null'}
 music: "${chartId}.ogg"
 illustration: "${chartId}.png"
 unlockVideo: null
