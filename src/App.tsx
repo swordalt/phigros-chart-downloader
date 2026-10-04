@@ -7,6 +7,9 @@ import { DifficultySelector } from './components/DifficultySelector';
 import { Spinner } from './components/Spinner';
 import { BlacklistWarningPopup } from './components/BlacklistWarningPopup';
 import { isBlacklisted, BlacklistEntry } from './blacklist';
+import { PatchedChartPopup } from './components/PatchedChartPopup';
+import { getPatchedChart, PatchedChartEntry } from './patchedCharts';
+import FileSaver from 'file-saver';
 import { SettingsPopup } from './components/SettingsPopup';
 import { FAQPopup } from './components/FAQPopup';
 import { AboutPopup } from './components/AboutPopup';
@@ -19,7 +22,8 @@ import { getSongEffect } from './song-effects';
 import { SongEffectRenderer } from './components/SongEffectRenderer';
 import { AudioPlayerControl } from './components/AudioPlayerControl';
 import { Song, FileInfo, SortConfig } from './types';
-import { fetchVersion, fetchSongs } from './utils/api';
+import { fetchVersion, fetchSongs, sendPatchedChartDownloadNotification } from './utils/api';
+import { registerSongAliasesConsoleHelper } from './utils/songAliasesExport';
 import { exportAllAssets, exportChart, exportBulkAssets } from './utils/export';
 import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from './utils/resourceUrls';
 
@@ -50,6 +54,7 @@ const App: React.FC = () => {
     const [bulkDelay, setBulkDelay] = useState<string>('0');
     const [bulkLimit, setBulkLimit] = useState<string>('');
     const [blacklistWarning, setBlacklistWarning] = useState<(BlacklistEntry & { exportType: 'phira' | 'chart' }) | null>(null);
+    const [patchedChartPrompt, setPatchedChartPrompt] = useState<PatchedChartEntry | null>(null);
     const [showDifficultyWarning, setShowDifficultyWarning] = useState<boolean>(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFaqOpen, setIsFaqOpen] = useState(false);
@@ -117,6 +122,10 @@ const App: React.FC = () => {
             setIsLoadingSongs(false);
         }
     }, [settings.proxySource, reportResourceError]);
+
+    useEffect(() => {
+        registerSongAliasesConsoleHelper(songs);
+    }, [songs]);
 
     useEffect(() => {
         loadVersion();
@@ -315,11 +324,51 @@ const App: React.FC = () => {
             return;
         }
 
+        const patched = getPatchedChart(selectedSong.id, selectedDifficulty);
+        if (patched) {
+            setPatchedChartPrompt(patched);
+            return;
+        }
+
+        startChartExport();
+    };
+
+    const startChartExport = () => {
+        if (!selectedSong || !selectedDifficulty) return;
         const entry = isBlacklisted(selectedSong.id, selectedDifficulty);
         if (entry) {
             setBlacklistWarning({ ...entry, exportType: 'chart' });
         } else {
             executeChartExport();
+        }
+    };
+
+    const handlePatchedOriginal = () => {
+        setPatchedChartPrompt(null);
+        startChartExport();
+    };
+
+    const handlePatchedDownload = async () => {
+        const patched = patchedChartPrompt;
+        setPatchedChartPrompt(null);
+        if (!patched || !selectedSong || exportState.type) return;
+
+        setExportState({ type: 'chart', progress: 0 });
+        try {
+            const response = await fetch(patched.url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            FileSaver.saveAs(blob, patched.fileName);
+            sendPatchedChartDownloadNotification(selectedSong.name, patched.difficulty);
+        } catch (error) {
+            console.error("Failed to download patched chart: ", error);
+            reportResourceError(
+                'Failed to download the patched chart.',
+                () => handlePatchedDownload(),
+                error instanceof Error ? error.message : undefined
+            );
+        } finally {
+            setExportState({ type: null, progress: 0 });
         }
     };
 
@@ -450,6 +499,15 @@ const App: React.FC = () => {
             {isAboutOpen && <AboutPopup isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
             {isProxyOpen && <ProxyPopup isOpen={isProxyOpen} onClose={() => setIsProxyOpen(false)} />}
             <ResourceErrorPopup onSwitchProxy={() => setIsProxyOpen(true)} />
+            {patchedChartPrompt && (
+                <PatchedChartPopup
+                    isOpen={!!patchedChartPrompt}
+                    onCancel={() => setPatchedChartPrompt(null)}
+                    onDownloadOriginal={handlePatchedOriginal}
+                    onDownloadPatched={handlePatchedDownload}
+                    reason={patchedChartPrompt.reason}
+                />
+            )}
             {blacklistWarning && (
                 <BlacklistWarningPopup 
                     isOpen={!!blacklistWarning}

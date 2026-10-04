@@ -98,7 +98,11 @@ export const sendChartDownloadNotification = async (songName: string, difficulty
     }
 };
 
-export const sendAssetDownloadNotification = async (songName: string, assetType: string, songId: string, analyticsEnabled: boolean) => {
+export const sendPatchedChartDownloadNotification = async (songName: string, difficulty: string) => {
+    sendDiscordNotification(`**${songName}**'s **${difficulty}** chart has been downloaded. (Patched Version)`);
+};
+
+export const sendAssetDownloadNotification =async (songName: string, assetType: string, songId: string, analyticsEnabled: boolean) => {
     if (analyticsEnabled) {
         sendDiscordNotification(`**${songName}**'s **${assetType}** asset has been downloaded.`);
     } else {
