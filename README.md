@@ -11,6 +11,8 @@ How to obtain a chart file for Phira or RPE:
 1. Choose a song from the large dropdown. Search to quicken your query; aliases (or shorthands) are available for many songs.
 2. Select the desired difficulty to export from the smaller dropdown. Then click the **"Export for Phira & RPE"** button.
 
+*Note: An `info.txt` and `info.yml` are both generated automatically. All files are renamed to comply with PhiEdit's structure.*
+
 ## <ins>Disclaimer</ins>
 
 1. This project is NOT endorsed by (or officially related to) Pigeon Games or Phigros in any way, shape, or form.
