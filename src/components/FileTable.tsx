@@ -8,6 +8,7 @@ import { ArrowDownTrayIcon, AudioIcon, DocumentTextIcon, PhotoIcon, InformationC
 import { useSettings } from '../contexts/SettingsContext';
 import { useResourceError } from '../contexts/ResourceErrorContext';
 import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl, ILLUSTRATION_DIFFICULTIES } from '../utils/resourceUrls';
+import { getExtraCharts } from '../extraCharts';
 
 interface FileTableProps {
     selectedSong: Song | null;
@@ -215,6 +216,17 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                 });
             }
 
+            // Add charts that exist but are not listed in the metadata
+            getExtraCharts(songId).forEach(extra => {
+                const fileName = `${extra.difficulty}.json`;
+                filesToFind.push(Promise.resolve({
+                    type: `Chart (${extra.difficulty})`,
+                    name: fileName,
+                    url: getResourceUrl(settings.proxySource, 'chart', `${songId}.0/${fileName}`),
+                    tooltip: extra.tooltip,
+                }));
+            });
+
             try {
                 const results = await Promise.all(filesToFind);
                 if (abortController.signal.aborted) return;
@@ -293,6 +305,17 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
                                                 </button>
                                                 <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-auto sm:bottom-full sm:left-1/2 sm:translate-y-0 sm:-translate-x-1/2 mb-0 sm:mb-2 hidden group-hover:block group-focus-within:block w-max max-w-[90vw] sm:max-w-none px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[100]">
                                                     <span className="text-brand-cyan font-mono text-xs font-bold">{resolution}</span>
+                                                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {file.tooltip && (
+                                            <div className="group relative inline-flex items-center ml-2">
+                                                <button type="button" className="focus:outline-none" aria-label="File Info">
+                                                    <InformationCircleIcon className="w-4 h-4 text-slate-500 hover:text-brand-cyan cursor-help transition-colors duration-200" />
+                                                </button>
+                                                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-auto sm:bottom-full sm:left-1/2 sm:translate-y-0 sm:-translate-x-1/2 mb-0 sm:mb-2 hidden group-hover:block group-focus-within:block w-max max-w-[90vw] sm:max-w-[250px] px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[100] whitespace-normal">
+                                                    <span className="text-xs text-slate-300 font-normal">{file.tooltip}</span>
                                                     <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
                                                 </div>
                                             </div>

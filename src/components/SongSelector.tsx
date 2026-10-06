@@ -7,7 +7,7 @@ import { songNameAliases } from '../song-aliases';
 import { useSettings } from '../contexts/SettingsContext';
 import { getSongEffect } from '../song-effects';
 import { Song, SortConfig, SortType, SortDirection } from '../types';
-import { ChevronDownIcon, ErrorIcon, MagnifyingGlassIcon, ArrowsUpDownIcon, CheckIcon } from './Icons';
+import { ChevronDownIcon, ErrorIcon, MagnifyingGlassIcon, ArrowsUpDownIcon, CheckIcon, FunnelIcon } from './Icons';
 
 interface SongSelectorProps {
   isLoading: boolean;
@@ -32,14 +32,35 @@ const normalizeSearchString = (str: string): string => {
     return str.replace(IGNORED_SEARCH_CHARS_REGEX, '').toLowerCase();
 };
 
+const LEVELS = ['EZ', 'HD', 'IN', 'AT'] as const;
+type Level = typeof LEVELS[number];
+
+const LEVEL_COLORS: Record<Level, string> = {
+    EZ: 'text-green-400',
+    HD: 'text-sky-400',
+    IN: 'text-red-400',
+    AT: 'text-slate-200',
+};
+
+const parseDifficulty = (value?: string): number | null => {
+    if (!value) return null;
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : null;
+};
+
 export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, songs, selectedSong, onSongSelect, sortConfig, onSortConfigChange }) => {
     const { settings } = useSettings();
     const [isOpen, setIsOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [minInput, setMinInput] = useState('');
+    const [maxInput, setMaxInput] = useState('');
+    const [enabledLevels, setEnabledLevels] = useState<Record<Level, boolean>>({ EZ: true, HD: true, IN: true, AT: true });
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const wrapperRef = useRef<HTMLDivElement>(null);
     const sortWrapperRef = useRef<HTMLDivElement>(null);
+    const filterWrapperRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const parentRef = useRef<HTMLUListElement>(null);
 
@@ -50,11 +71,58 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
         return () => clearTimeout(handler);
     }, [searchTerm]);
 
+    // Overall difficulty bounds from difficulty.tsv, used for the filter inputs.
+    const difficultyBounds = useMemo(() => {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const song of songs) {
+            for (const level of LEVELS) {
+                const d = parseDifficulty(song.difficulties?.[level]);
+                if (d === null) continue;
+                if (d < min) min = d;
+                if (d > max) max = d;
+            }
+        }
+        if (min === Infinity) return null;
+        return { min, max };
+    }, [songs]);
+
+    const parsedMin = parseDifficulty(minInput);
+    const parsedMax = parseDifficulty(maxInput);
+    const allLevelsEnabled = LEVELS.every(level => enabledLevels[level]);
+    const isFilterActive = !allLevelsEnabled ||
+        (difficultyBounds !== null && (
+            (parsedMin !== null && parsedMin > difficultyBounds.min) ||
+            (parsedMax !== null && parsedMax < difficultyBounds.max)
+        ));
+
+    const filteredSongs = useMemo(() => {
+        if (!isFilterActive) return songs;
+        const lo = parsedMin ?? -Infinity;
+        const hi = parsedMax ?? Infinity;
+        // A song is kept if at least one enabled level has a difficulty within range.
+        return songs.filter(song => LEVELS.some(level => {
+            if (!enabledLevels[level]) return false;
+            const d = parseDifficulty(song.difficulties?.[level]);
+            return d !== null && d >= lo && d <= hi;
+        }));
+    }, [songs, isFilterActive, parsedMin, parsedMax, enabledLevels]);
+
+    const toggleLevel = (level: Level) => {
+        setEnabledLevels(prev => ({ ...prev, [level]: !prev[level] }));
+    };
+
+    const resetFilter = () => {
+        setMinInput('');
+        setMaxInput('');
+        setEnabledLevels({ EZ: true, HD: true, IN: true, AT: true });
+    };
+
     const aliasList = useMemo(() => {
         const list: { alias: string, song: Song }[] = [];
-        if (songs.length > 0) {
+        if (filteredSongs.length > 0) {
             for (const songName in songNameAliases) {
-                const song = songs.find(s => s.name === songName);
+                const song = filteredSongs.find(s => s.name === songName);
                 if (song) {
                     const aliases = songNameAliases[songName];
                     for (const alias of aliases) {
@@ -64,15 +132,15 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
             }
         }
         return list;
-    }, [songs]);
+    }, [filteredSongs]);
 
     const { displayedSongs, isSuggestion } = useMemo(() => {
         if (!debouncedSearchTerm) {
-            return { displayedSongs: songs, isSuggestion: false };
+            return { displayedSongs: filteredSongs, isSuggestion: false };
         }
         const normalizedSearchTerm = normalizeSearchString(debouncedSearchTerm);
 
-        const directMatches = songs.filter(song =>
+        const directMatches = filteredSongs.filter(song =>
             normalizeSearchString(song.name).includes(normalizedSearchTerm)
         );
 
@@ -91,17 +159,19 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
         }
 
         return { displayedSongs: [], isSuggestion: false };
-    }, [songs, debouncedSearchTerm, aliasList]);
+    }, [filteredSongs, debouncedSearchTerm, aliasList]);
 
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            // Close song selector if clicked outside of it AND outside of the sort button
+            // Close song selector if clicked outside of it AND outside of the sort/filter buttons
             if (
-                wrapperRef.current && 
+                wrapperRef.current &&
                 !wrapperRef.current.contains(event.target as Node) &&
                 sortWrapperRef.current &&
-                !sortWrapperRef.current.contains(event.target as Node)
+                !sortWrapperRef.current.contains(event.target as Node) &&
+                filterWrapperRef.current &&
+                !filterWrapperRef.current.contains(event.target as Node)
             ) {
                 setIsOpen(false);
             }
@@ -110,12 +180,17 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
             if (sortWrapperRef.current && !sortWrapperRef.current.contains(event.target as Node)) {
                 setIsSortOpen(false);
             }
+
+            // Close filter popup if clicked outside of it
+            if (filterWrapperRef.current && !filterWrapperRef.current.contains(event.target as Node)) {
+                setIsFilterOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [wrapperRef, sortWrapperRef]);
+    }, [wrapperRef, sortWrapperRef, filterWrapperRef]);
     
     useEffect(() => {
         if (isOpen) {
@@ -247,7 +322,91 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
                     </div>
                 )}
             </div>
-            
+
+            <div ref={filterWrapperRef} className="relative">
+                <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className={`relative flex items-center justify-center w-14 h-14 rounded-xl border border-slate-700 shadow-lg backdrop-blur-sm transition-colors duration-200 flex-shrink-0 ${isFilterOpen ? 'bg-slate-700 text-slate-200' : 'bg-slate-800/50 hover:bg-slate-800/80 text-slate-400'}`}
+                    title="Filter Options"
+                    aria-haspopup="true"
+                    aria-expanded={isFilterOpen}
+                >
+                    <FunnelIcon className="w-6 h-6" />
+                    {isFilterActive && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-brand-cyan" />}
+                    <span className="sr-only">Filter Options</span>
+                </button>
+
+                {isFilterOpen && (
+                    <div className="motion-dropdown absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-700 bg-slate-800 shadow-2xl overflow-hidden">
+                        <div className="py-1">
+                            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                Difficulty Range
+                            </div>
+                            <div className="flex items-center gap-2 px-4 pb-2">
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step={0.1}
+                                    min={difficultyBounds?.min}
+                                    max={difficultyBounds?.max}
+                                    placeholder={difficultyBounds ? String(difficultyBounds.min) : 'Min'}
+                                    value={minInput}
+                                    onChange={(e) => setMinInput(e.target.value)}
+                                    disabled={!difficultyBounds}
+                                    className="w-full min-w-0 bg-slate-700/50 rounded-lg border-none px-2 py-1.5 text-sm text-slate-200 text-center focus:ring-2 focus:ring-brand-cyan focus:outline-none disabled:opacity-50"
+                                    aria-label="Minimum difficulty"
+                                />
+                                <span className="text-slate-500">–</span>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step={0.1}
+                                    min={difficultyBounds?.min}
+                                    max={difficultyBounds?.max}
+                                    placeholder={difficultyBounds ? String(difficultyBounds.max) : 'Max'}
+                                    value={maxInput}
+                                    onChange={(e) => setMaxInput(e.target.value)}
+                                    disabled={!difficultyBounds}
+                                    className="w-full min-w-0 bg-slate-700/50 rounded-lg border-none px-2 py-1.5 text-sm text-slate-200 text-center focus:ring-2 focus:ring-brand-cyan focus:outline-none disabled:opacity-50"
+                                    aria-label="Maximum difficulty"
+                                />
+                            </div>
+
+                            <div className="my-1 border-t border-slate-700"></div>
+
+                            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                Level
+                            </div>
+                            {LEVELS.map(level => (
+                                <button
+                                    key={level}
+                                    onClick={() => toggleLevel(level)}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center justify-between transition-colors duration-150"
+                                    role="menuitemcheckbox"
+                                    aria-checked={enabledLevels[level]}
+                                >
+                                    <span className={`font-bold ${LEVEL_COLORS[level]}`}>{level}</span>
+                                    <span className={`flex items-center justify-center w-4 h-4 rounded border ${enabledLevels[level] ? 'border-brand-cyan bg-brand-cyan/20' : 'border-slate-500'}`}>
+                                        {enabledLevels[level] && <CheckIcon className="w-3 h-3 text-brand-cyan" />}
+                                    </span>
+                                </button>
+                            ))}
+
+                            <div className="my-1 border-t border-slate-700"></div>
+
+                            <button
+                                onClick={resetFilter}
+                                disabled={!isFilterActive && !minInput && !maxInput}
+                                className="w-full text-left px-4 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors duration-150 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                            >
+                                Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div ref={sortWrapperRef} className="relative">
                 <button
                     type="button"

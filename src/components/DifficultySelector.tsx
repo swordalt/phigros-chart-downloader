@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDownIcon } from './Icons';
 import { Song } from '../types';
+import { getExtraChart } from '../extraCharts';
 
 interface DifficultySelectorProps {
     difficulties: string[];
@@ -37,8 +38,9 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
     };
 
     const getDifficultyLabel = (diff: string) => {
-        if (!selectedSong || !selectedSong.difficulties) return diff;
-        const constant = selectedSong.difficulties[diff as keyof typeof selectedSong.difficulties];
+        if (!selectedSong) return diff;
+        const constant = selectedSong.difficulties?.[diff as keyof NonNullable<typeof selectedSong.difficulties>]
+            ?? getExtraChart(selectedSong.id, diff)?.level;
         return constant ? `${diff} (${constant})` : diff;
     };
 
@@ -73,6 +75,7 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
                                 onClick={() => handleSelect(diff)}
                                 role="option"
                                 aria-selected={selectedDifficulty === diff}
+                                title={selectedSong ? getExtraChart(selectedSong.id, diff)?.tooltip : undefined}
                             >
                                 {getDifficultyLabel(diff)}
                             </li>

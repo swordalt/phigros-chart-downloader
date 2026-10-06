@@ -26,7 +26,7 @@ export const defaultSettings: Settings = {
     analyticsEnabled: true,
     exportIllustrationType: 'full',
     chartFormatConversion: 'none',
-    chartEasingFitting: false,
+    chartEasingFitting: true,
     useNewUi: true,
     proxySource: 'github',
     newUiAudioPreview: false,

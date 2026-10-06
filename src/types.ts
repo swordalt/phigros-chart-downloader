@@ -21,4 +21,5 @@ export interface FileInfo {
     type: string;
     name: string;
     url: string;
+    tooltip?: string;
 }

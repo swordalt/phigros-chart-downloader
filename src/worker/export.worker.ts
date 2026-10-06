@@ -3,6 +3,7 @@ import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
 import { ProxySource, getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from '../utils/resourceUrls';
 import { OfficialChart, officialToRpe } from '../utils/chartConverter';
+import { getExtraChart, getExtraCharts } from '../extraCharts';
 
 // Define message types for type safety
 export type ExportMessage =
@@ -112,16 +113,19 @@ const handleExportChart = async (
 
     // Difficulty Processing
     const diffKey = selectedDifficulty as keyof typeof selectedSong.difficulties;
-    let difficultyValStr = selectedSong.difficulties?.[diffKey];
-    
+    let difficultyValStr = selectedSong.difficulties?.[diffKey]
+        ?? getExtraChart(selectedSong.id, selectedDifficulty)?.level;
+
     // Default to 0 if missing or if difficulty is not one of EZ/HD/IN/AT
     if (!difficultyValStr) {
         difficultyValStr = '0';
     }
 
-    const difficultyVal = parseFloat(difficultyValStr);
-    const difficultyInt = Math.floor(difficultyVal);
-    const levelString = `${selectedDifficulty} Lv.${difficultyInt}`;
+    // Non-numeric levels (e.g. SP "?") export with difficulty 0 but keep the original label
+    const parsedDifficulty = parseFloat(difficultyValStr);
+    const difficultyVal = Number.isFinite(parsedDifficulty) ? parsedDifficulty : 0;
+    const levelLabel = Number.isFinite(parsedDifficulty) ? String(Math.floor(parsedDifficulty)) : difficultyValStr;
+    const levelString = `${selectedDifficulty} Lv.${levelLabel}`;
 
     const infoTemplate = `#
 Name: {SONG_NAME}
@@ -242,7 +246,7 @@ const handleExportBulkAssets = async (songs: Song[], delaySeconds: number, proxy
                 });
             });
         }
-        difficulties.forEach(diff => {
+        [...difficulties, ...getExtraCharts(songId).map(extra => extra.difficulty)].forEach(diff => {
             filesToTry.push({
                 type: `Chart (${diff})`,
                 name: `${diff}.json`,
