@@ -1,173 +1,102 @@
-
-import React, { useRef, useMemo } from 'react';
-import { useSettings } from '../contexts/SettingsContext';
+import React, { useMemo, useState } from 'react';
 import { projectDescription, updateLogs } from '../aboutData';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { DialogFrame, DialogFooter, Eyebrow, CloseButton, Button } from './ui/Dialog';
+import { ChevronDownIcon } from './Icons';
 
 interface AboutPopupProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-interface AccordionItemProps {
-    title: string;
-    children: React.ReactNode;
-    isLast: boolean;
-}
+const REPO_URL = 'https://github.com/swordalt/phigros-chart-downloader/';
 
-const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isLast }) => (
-    <details className={`group border-b border-slate-700/50 py-4 ${isLast ? 'border-none' : ''}`}>
-        <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-slate-200 hover:text-white transition-colors">
-            {title}
-            <div className="text-slate-400 group-hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 transition-transform duration-300 group-open:rotate-180">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-            </div>
-        </summary>
-        <div className="mt-4 text-slate-400 text-sm">
-            {children}
-        </div>
-    </details>
-);
+// Update logs are stored as HTML lists; pull out the text of each <li>.
+const parseLogItems = (html: string): string[] => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return Array.from(doc.querySelectorAll('li'))
+        .map(li => (li.textContent || '').trim())
+        .filter(Boolean);
+};
 
 export const AboutPopup: React.FC<AboutPopupProps> = ({ isOpen, onClose }) => {
-    const { settings } = useSettings();
-    const parentRef = useRef<HTMLDivElement>(null);
+    // Index into the version history; the most recent past entry starts open.
+    const [openIndex, setOpenIndex] = useState<number>(0);
 
-    const latestLog = updateLogs[0];
-    const pastLogs = updateLogs.slice(1);
-
-    // Flatten the content into a list for virtualization
-    const items = useMemo(() => {
-        const list: { type: 'header' | 'latest' | 'history-title' | 'log', data?: any }[] = [
-            { type: 'header' },
-            { type: 'latest', data: latestLog },
-        ];
-        
-        if (pastLogs.length > 0) {
-            list.push({ type: 'history-title' });
-            pastLogs.forEach(log => {
-                list.push({ type: 'log', data: log });
-            });
-        }
-        return list;
-    }, [latestLog, pastLogs]);
-
-    const rowVirtualizer = useVirtualizer({
-        count: items.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: (index) => {
-            switch (items[index].type) {
-                case 'header': return 200;
-                case 'latest': return 150;
-                case 'history-title': return 40;
-                case 'log': return 80;
-                default: return 50;
-            }
-        },
-    });
+    const logs = useMemo(() => updateLogs.map(log => ({ date: log.date, items: parseLogItems(log.content) })), []);
+    const latest = logs[0];
+    const history = logs.slice(1);
 
     if (!isOpen) return null;
 
     return (
-        <div 
-            className="motion-backdrop fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            aria-labelledby="about-title"
-            role="dialog"
-            aria-modal="true"
-            onClick={onClose}
-        >
-            <div 
-                className={`motion-dialog relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border border-slate-700 shadow-2xl transform transition-all flex flex-col max-h-[80vh] ${
-                    settings.useNewUi ? 'bg-slate-900/80 backdrop-blur-md' : 'bg-slate-900'
-                }`}
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Combined Scrollable Container */}
-                <div 
-                    ref={parentRef}
-                    className="flex-1 overflow-y-auto custom-scrollbar scroll-fade"
-                >
-                    <div
-                        style={{
-                            height: `${rowVirtualizer.getTotalSize()}px`,
-                            width: '100%',
-                            position: 'relative',
-                        }}
-                    >
-                        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                            const item = items[virtualItem.index];
+        <DialogFrame onClose={onClose} labelledBy="about-title" className="w-full max-w-[680px] max-h-[min(660px,calc(100dvh-32px))]">
+            <div className="flex-none flex items-start justify-between gap-6 max-md:gap-4 px-6 max-md:px-5 pt-[22px] pb-5 border-b border-white/[.06]">
+                <div className="flex flex-col gap-2">
+                    <Eyebrow>About the Project</Eyebrow>
+                    <h2 id="about-title" className="text-[21px] font-semibold leading-[1.25] text-slate-100">Phigros Chart Downloader</h2>
+                    <p className="text-sm leading-[1.6] text-slate-400 text-pretty">{projectDescription}</p>
+                </div>
+                <CloseButton onClick={onClose} />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto thin-scroll px-6 max-md:px-5 py-5 flex flex-col gap-5">
+                {latest && (
+                    <div className="rounded-xl border border-[rgba(34,211,238,.22)] bg-[rgba(34,211,238,.04)] px-[18px] py-4 flex flex-col gap-2.5">
+                        <div className="flex items-center gap-2.5">
+                            <span className="font-mono text-[10px] font-semibold tracking-[.12em] text-[#06141a] bg-[#22d3ee] px-[7px] py-[3px] rounded">LATEST</span>
+                            <span className="font-mono text-[13px] font-medium text-slate-200">{latest.date}</span>
+                        </div>
+                        <ul className="flex flex-col gap-1.5">
+                            {latest.items.map(item => (
+                                <li key={item} className="flex gap-2.5 text-sm leading-[1.5] text-slate-300">
+                                    <span className="text-[#22d3ee]">—</span><span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {history.length > 0 && (
+                    <div className="flex flex-col">
+                        <span className="font-mono text-[10px] font-medium tracking-[.14em] text-slate-500 pb-2">VERSION HISTORY</span>
+                        {history.map((log, i) => {
+                            const isOpenItem = openIndex === i;
                             return (
-                                <div
-                                    key={virtualItem.key}
-                                    ref={rowVirtualizer.measureElement}
-                                    data-index={virtualItem.index}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualItem.start}px)`,
-                                    }}
-                                >
-                                    {item.type === 'header' && (
-                                        <div className="p-6 border-b border-slate-700/50">
-                                            <h2 id="about-title" className="text-2xl font-bold text-brand-cyan mb-2">
-                                                About Project
-                                            </h2>
-                                            <p className="text-slate-300 text-sm leading-relaxed">
-                                                {projectDescription}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {item.type === 'latest' && item.data && (
-                                        <div className="px-6 pt-6 pb-2">
-                                            <div className="mb-6">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <span className="px-2 py-1 rounded bg-brand-cyan/20 text-brand-cyan text-xs font-bold uppercase tracking-wider">Latest Update</span>
-                                                    <h3 className="font-bold text-white text-lg">{item.data.date}</h3>
-                                                </div>
-                                                <div 
-                                                    className="bg-slate-800/50 rounded-lg p-4 text-slate-300 text-sm border border-slate-700/50"
-                                                    dangerouslySetInnerHTML={{ __html: item.data.content }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {item.type === 'history-title' && (
-                                        <div className="px-6 pt-2 pb-2">
-                                            <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider">Version History</h3>
-                                        </div>
-                                    )}
-
-                                    {item.type === 'log' && item.data && (
-                                        <div className="px-6">
-                                            <AccordionItem 
-                                                title={item.data.date}
-                                                isLast={virtualItem.index === items.length - 1}
-                                            >
-                                                <div dangerouslySetInnerHTML={{ __html: item.data.content }} />
-                                            </AccordionItem>
-                                        </div>
+                                <div key={log.date} className="border-t border-white/[.06]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenIndex(isOpenItem ? -1 : i)}
+                                        aria-expanded={isOpenItem}
+                                        className="w-full h-[46px] flex items-center justify-between group"
+                                    >
+                                        <span className="flex items-center gap-3">
+                                            <span className={`font-mono text-[13px] font-medium ${isOpenItem ? 'text-slate-100' : 'text-slate-300 group-hover:text-white'}`}>{log.date}</span>
+                                            <span className="text-xs text-slate-600">{log.items.length} {log.items.length === 1 ? 'change' : 'changes'}</span>
+                                        </span>
+                                        <ChevronDownIcon className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpenItem ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {isOpenItem && (
+                                        <ul className="pb-3.5 flex flex-col gap-1.5">
+                                            {log.items.map(item => (
+                                                <li key={item} className="flex gap-2.5 text-[13px] leading-[1.5] text-slate-400">
+                                                    <span className="text-slate-600">—</span><span>{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     )}
                                 </div>
                             );
                         })}
                     </div>
-                </div>
-
-                <div className="p-6 text-right bg-slate-900/50 border-t border-slate-800 shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-slate-600 hover:bg-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-slate-500"
-                    >
-                        Close
-                    </button>
-                </div>
+                )}
             </div>
-        </div>
+
+            <DialogFooter>
+                <span className="text-[13px] text-slate-500">
+                    More information available on <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-[#22d3ee] hover:text-[#67e8f9]">GitHub</a>.
+                </span>
+                <Button variant="outline" size="md" onClick={onClose}>Close</Button>
+            </DialogFooter>
+        </DialogFrame>
     );
 };

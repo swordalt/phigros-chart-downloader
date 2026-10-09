@@ -11,7 +11,7 @@ export const extraCharts: ExtraChartEntry[] = [
     songId: 'Message.くるぶっこちゃん',
     difficulty: 'SP',
     level: '?',
-    tooltip: 'The version of the chart played during the first playthrough.'
+    tooltip: 'The alternate version of the chart played during the initial Chapter 9 playthrough.'
   }
 ];
 

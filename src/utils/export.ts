@@ -4,6 +4,7 @@ import { FileInfo, Song } from '../types';
 import { Settings } from '../defaultSettings';
 import { sendAllAssetsDownloadNotification, sendChartDownloadNotification } from './api';
 import { ProxySource } from './resourceUrls';
+import { getGithubToken } from './githubAuth';
 
 // Worker interface (matching the worker definition)
 interface WorkerResponse {
@@ -20,9 +21,9 @@ interface WorkerResponse {
 }
 
 type ExportMessage =
-    | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song }
-    | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings }
-    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource };
+    | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song; githubToken?: string }
+    | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings; githubToken?: string }
+    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource; githubToken?: string };
 
 const runWorker = (
     message: ExportMessage, 
@@ -72,7 +73,7 @@ const runWorker = (
             worker.terminate();
         };
 
-        worker.postMessage(message);
+        worker.postMessage({ ...message, githubToken: getGithubToken() });
     });
 };
 
@@ -81,7 +82,7 @@ export const exportAllAssets = async (
     selectedSong: Song, 
     settings: Settings,
     onProgress: (progress: number) => void
-) => {
+): Promise<string> => {
     try {
         const { blob, fileName } = await runWorker({
             type: 'exportAllAssets',
@@ -92,6 +93,7 @@ export const exportAllAssets = async (
         FileSaver.saveAs(blob, fileName);
 
         sendAllAssetsDownloadNotification(selectedSong.name, selectedSong.id, settings.analyticsEnabled);
+        return fileName;
     } catch (error) {
         console.error("Export failed:", error);
         throw error;
@@ -104,7 +106,7 @@ export const exportChart = async (
     selectedDifficulty: string,
     settings: Settings,
     onProgress: (progress: number) => void
-) => {
+): Promise<string> => {
     try {
         const { blob, fileName, chartId } = await runWorker({
             type: 'exportChart',
@@ -117,6 +119,7 @@ export const exportChart = async (
         FileSaver.saveAs(blob, fileName);
 
         sendChartDownloadNotification(selectedSong.name, selectedDifficulty, chartId || 'Unknown', settings.analyticsEnabled);
+        return fileName;
     } catch (error) {
         console.error("Export failed:", error);
         throw error;

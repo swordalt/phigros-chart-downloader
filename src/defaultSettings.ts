@@ -8,15 +8,12 @@ export interface Settings {
     chartEasingFitting: boolean;
     useNewUi: boolean;
     proxySource: ProxySource;
+    githubToken: string;
     // New UI Sub-settings
     newUiAudioPreview: boolean;
     newUiAudioVolume: number;
     newUiLoopAudio: boolean;
-    newUiShowVisualizer: boolean;
-    newUiVisualizerColor: string;
-    newUiVisualizerHeight: number;
-    newUiVisualizerOpacity: number;
-    newUiSongSpecificEffects: boolean;
+    newUiBlur: boolean;
     bulkDownloadMode: boolean;
     advancedInfo: boolean;
 }
@@ -25,18 +22,15 @@ export const defaultSettings: Settings = {
     useZipFormat: false,
     analyticsEnabled: true,
     exportIllustrationType: 'full',
-    chartFormatConversion: 'none',
+    chartFormatConversion: 'rpe',
     chartEasingFitting: true,
     useNewUi: true,
     proxySource: 'github',
-    newUiAudioPreview: false,
+    githubToken: '',
+    newUiAudioPreview: true,
     newUiAudioVolume: 1,
     newUiLoopAudio: true,
-    newUiShowVisualizer: true,
-    newUiVisualizerColor: 'gray', // slate-200
-    newUiVisualizerHeight: 60,
-    newUiVisualizerOpacity: 60,
-    newUiSongSpecificEffects: false,
+    newUiBlur: false,
     bulkDownloadMode: false,
     advancedInfo: false,
 };

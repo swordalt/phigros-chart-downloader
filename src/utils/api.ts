@@ -1,12 +1,13 @@
 
 import { Song } from '../types';
 import { ProxySource, getResourceUrl } from './resourceUrls';
+import { resourceFetch } from './githubAuth';
 
 const DISCORD_WEBHOOK_URL_ENCODED = 'aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTU1MDkyNjI0NDAwMTA5NTcwNC80RVB6Ui1IaG50Zkh5U3pueU9nb2IwQWJMbW1TMGJodzlybjVtVXBCNVRIRlBsbmFkbE52ckZ4aXdLaDM0bms1RWJsdg==';
 const getDiscordWebhookUrl = () => atob(DISCORD_WEBHOOK_URL_ENCODED);
 
 export const fetchVersion = async (proxySource: ProxySource): Promise<string> => {
-    const response = await fetch(getResourceUrl(proxySource, 'info', 'version.txt'));
+    const response = await resourceFetch(getResourceUrl(proxySource, 'info', 'version.txt'));
     if (!response.ok) {
         throw new Error(`Failed to fetch version: ${response.status} ${response.statusText}`);
     }
@@ -15,8 +16,8 @@ export const fetchVersion = async (proxySource: ProxySource): Promise<string> =>
 
 export const fetchSongs = async (proxySource: ProxySource): Promise<Song[]> => {
     const [infoRes, diffRes] = await Promise.all([
-        fetch(getResourceUrl(proxySource, 'info', 'info.tsv')),
-        fetch(getResourceUrl(proxySource, 'info', 'difficulty.tsv'))
+        resourceFetch(getResourceUrl(proxySource, 'info', 'info.tsv')),
+        resourceFetch(getResourceUrl(proxySource, 'info', 'difficulty.tsv'))
     ]);
 
     if (!infoRes.ok) {
@@ -52,11 +53,12 @@ export const fetchSongs = async (proxySource: ProxySource): Promise<Song[]> => {
                 const id = parts[0].trim();
                 let name = parts[1].trim();
                 const composer = (parts[2] || 'TBA').trim();
+                // Columns: id, name, composer, illustrator, then one charter per difficulty.
                 const charters = {
-                    EZ: (parts[3] || '').trim() || undefined,
-                    HD: (parts[4] || '').trim() || undefined,
-                    IN: (parts[5] || '').trim() || undefined,
-                    AT: (parts[6] || '').trim() || undefined,
+                    EZ: (parts[4] || '').trim() || undefined,
+                    HD: (parts[5] || '').trim() || undefined,
+                    IN: (parts[6] || '').trim() || undefined,
+                    AT: (parts[7] || '').trim() || undefined,
                 };
 
                 const difficulties = difficultyMap.get(id);
@@ -118,11 +120,13 @@ export const sendAllAssetsDownloadNotification = async (songName: string, songId
     }
 };
 
-export const checkUrlExists = async (url: string): Promise<boolean> => {
+/** HEAD request that also reports the file size when the server exposes it. */
+export const probeUrl = async (url: string): Promise<{ exists: boolean; size: number | null }> => {
     try {
-        const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-        return response.ok;
+        const response = await resourceFetch(url, { method: 'HEAD', cache: 'no-store' });
+        const length = Number(response.headers.get('content-length'));
+        return { exists: response.ok, size: response.ok && length > 0 ? length : null };
     } catch {
-        return false;
+        return { exists: false, size: null };
     }
 };

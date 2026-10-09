@@ -1,46 +1,63 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Spinner } from './Spinner';
 import { AssetDownloadWarningPopup } from './AssetDownloadWarningPopup';
 import { Song, FileInfo } from '../types';
-import { checkUrlExists, sendAssetDownloadNotification } from '../utils/api';
-import { ArrowDownTrayIcon, AudioIcon, DocumentTextIcon, PhotoIcon, InformationCircleIcon, ChevronDownIcon } from './Icons';
+import { sendAssetDownloadNotification } from '../utils/api';
+import { ArrowDownTrayIcon, InformationCircleIcon } from './Icons';
 import { useSettings } from '../contexts/SettingsContext';
 import { useResourceError } from '../contexts/ResourceErrorContext';
-import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl, ILLUSTRATION_DIFFICULTIES } from '../utils/resourceUrls';
-import { getExtraCharts } from '../extraCharts';
+import { getResourceUrl } from '../utils/resourceUrls';
+import { resourceFetch } from '../utils/githubAuth';
+import { getDifficultyColor, floorLevel } from '../utils/difficulty';
+import { getExtraChart } from '../extraCharts';
+import { getChartDifficulty } from '../hooks/useSongFiles';
 
 interface FileTableProps {
-    selectedSong: Song | null;
-    onFilesFound: (files: FileInfo[]) => void;
-    onExportAllAssets: () => void;
-    isExporting: boolean;
-    exportState: { type: 'phira' | 'chart' | null; progress: number };
+    selectedSong: Song;
+    files: FileInfo[];
+    isLoading: boolean;
+    onDownloaded: (fileName: string) => void;
+    /** Larger previews and touch targets for the phone layout. */
+    variant?: 'default' | 'mobile';
 }
 
-export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound, onExportAllAssets, isExporting, exportState }) => {
+const ASSET_WARNING_KEY = 'phigrosDownloader_assetWarningShown';
+
+const RESOLUTIONS: Record<string, string> = {
+    'Illustration': '2048×1080',
+    'Illustration (Low-Res)': '512×270',
+    'Illustration (Blur)': '256×135',
+};
+
+const formatBytes = (bytes?: number): string => {
+    if (!bytes) return '';
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+
+const getDownloadName = (file: FileInfo, song: Song) =>
+    file.type.startsWith('Chart') ? `Chart_${song.id}_${file.name}` : file.name;
+
+export const FileTable: React.FC<FileTableProps> = ({ selectedSong, files, isLoading, onDownloaded, variant = 'default' }) => {
+    const mobile = variant === 'mobile';
+    const previewBox = mobile ? 'w-14' : 'w-12 sm:w-16';
     const { settings } = useSettings();
     const { reportResourceError } = useResourceError();
-    const [files, setFiles] = useState<FileInfo[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
-    const [isCollapsed, setIsCollapsed] = useState(true);
+    const [pendingDownload, setPendingDownload] = useState<FileInfo | null>(null);
 
-    // New state for warning popup
-    const [showAssetWarning, setShowAssetWarning] = useState(false);
-    const [pendingDownload, setPendingDownload] = useState<{ file: FileInfo; name: string } | null>(null);
-
-    const executeDownload = useCallback(async (file: FileInfo, downloadName: string) => {
-        if (downloadingUrl || !selectedSong) return; // Prevent multiple concurrent downloads
+    const executeDownload = useCallback(async (file: FileInfo) => {
+        if (downloadingUrl) return; // Prevent multiple concurrent downloads
+        const downloadName = getDownloadName(file, selectedSong);
         setDownloadingUrl(file.url);
         try {
-            const response = await fetch(file.url, { referrerPolicy: 'no-referrer' });
+            const response = await resourceFetch(file.url, { referrerPolicy: 'no-referrer' });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const blob = await response.blob();
             const blobUrl = window.URL.createObjectURL(blob);
-            
+
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = downloadName;
@@ -50,384 +67,164 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, onFilesFound
             window.URL.revokeObjectURL(blobUrl);
 
             sendAssetDownloadNotification(selectedSong.name, file.type, selectedSong.id, settings.analyticsEnabled);
+            onDownloaded(downloadName);
         } catch (error) {
             console.error('Download failed:', error);
             reportResourceError(
                 `Failed to download "${file.name}".`,
-                () => executeDownload(file, downloadName),
-                error instanceof Error ? error.message : undefined
+                () => executeDownload(file),
+                error instanceof Error ? `GET ${file.url} → ${error.message}` : file.url
             );
         } finally {
             setDownloadingUrl(null);
         }
-    }, [downloadingUrl, selectedSong, settings.analyticsEnabled, reportResourceError]);
-    
+    }, [downloadingUrl, selectedSong, settings.analyticsEnabled, reportResourceError, onDownloaded]);
+
     const handleDownloadClick = (file: FileInfo) => {
-        if (!selectedSong) return;
-
-        const downloadName = file.type.startsWith('Chart') ? `Chart_${selectedSong.id}_${file.name}` : file.name;
-
-        // Check for chart file and show warning if needed
-        if (file.type.startsWith('Chart')) {
-            const warningShown = localStorage.getItem('phigrosDownloader_assetWarningShown');
-            if (!warningShown) {
-                setPendingDownload({ file, name: downloadName });
-                setShowAssetWarning(true);
-                return;
-            }
+        // Charts are raw .json files; explain that once before the first download.
+        if (file.type.startsWith('Chart') && !localStorage.getItem(ASSET_WARNING_KEY)) {
+            setPendingDownload(file);
+            return;
         }
-
-        executeDownload(file, downloadName);
+        executeDownload(file);
     };
 
     const handleWarningConfirm = () => {
-        localStorage.setItem('phigrosDownloader_assetWarningShown', 'true');
-        setShowAssetWarning(false);
-        if (pendingDownload) {
-            executeDownload(pendingDownload.file, pendingDownload.name);
-            setPendingDownload(null);
-        }
-    };
-
-    const handleWarningCancel = () => {
-        setShowAssetWarning(false);
+        localStorage.setItem(ASSET_WARNING_KEY, 'true');
+        const file = pendingDownload;
         setPendingDownload(null);
+        if (file) executeDownload(file);
     };
 
-    useEffect(() => {
-        if (!selectedSong) {
-            setFiles([]);
-            onFilesFound([]);
-            return;
-        }
+    const lowResUrl = getResourceUrl(settings.proxySource, 'illustrationLowRes', `${selectedSong.id}.png`);
 
-        const abortController = new AbortController();
-
-        const fetchFiles = async () => {
-            setIsLoading(true);
-            setFiles([]);
-            onFilesFound([]);
-            const songId = selectedSong.id;
-
-            const filesToFind: Promise<FileInfo | null>[] = [];
-
-            // Helper to wrap checkUrlExists with abort signal
-            const checkUrl = async (url: string) => {
-                if (abortController.signal.aborted) return false;
-                return await checkUrlExists(url);
-            };
-
-            // Add illustration
-            filesToFind.push(
-                (async () => {
-                    const url = getResourceUrl(settings.proxySource, 'illustration', `${songId}.png`);
-                    if (await checkUrl(url)) {
-                        return { type: 'Illustration', name: `${songId}.png`, url };
-                    }
-                    return null;
-                })()
-            );
-
-            // Add per-difficulty illustrations (song-specific)
-            if (hasPerDifficultyIllustrations(songId)) {
-                ILLUSTRATION_DIFFICULTIES.forEach(diff => {
-                    filesToFind.push(
-                        (async () => {
-                            const url = getDifficultyIllustrationUrl(settings.proxySource, songId, diff);
-                            if (await checkUrl(url)) {
-                                return { type: `Illustration (${diff})`, name: `${songId}_${diff}.png`, url };
-                            }
-                            return null;
-                        })()
-                    );
-                });
-            }
-
-            // Add low-res illustration
-            filesToFind.push(
-                (async () => {
-                    const url = getResourceUrl(settings.proxySource, 'illustrationLowRes', `${songId}.png`);
-                    if (await checkUrl(url)) {
-                        return { type: 'Illustration (Low-Res)', name: `${songId}.png`, url };
-                    }
-                    return null;
-                })()
-            );
-
-            // Add blurred illustration
-            filesToFind.push(
-                (async () => {
-                    const url = getResourceUrl(settings.proxySource, 'illustrationBlur', `${songId}.png`);
-                    if (await checkUrl(url)) {
-                        return { type: 'Illustration (Blur)', name: `${songId}.png`, url };
-                    }
-                    return null;
-                })()
-            );
-
-            // Add audio
-            filesToFind.push(
-                (async () => {
-                    const url = getResourceUrl(settings.proxySource, 'music', `${songId}.ogg`);
-                    if (await checkUrl(url)) {
-                        return { type: 'Audio', name: `${songId}.ogg`, url };
-                    }
-                    return null;
-                })()
-            );
-
-            // Add chart checks
-            const difficulties = ['EZ', 'HD', 'IN', 'AT'];
-
-            if (selectedSong.difficulties) {
-                difficulties.forEach(diff => {
-                    const diffKey = diff as keyof NonNullable<Song['difficulties']>;
-                    if (selectedSong.difficulties?.[diffKey]) {
-                        const fileName = `${diff}.json`;
-                        const url = getResourceUrl(settings.proxySource, 'chart', `${songId}.0/${fileName}`);
-                        filesToFind.push(Promise.resolve({
-                            type: `Chart (${diff})`,
-                            name: fileName,
-                            url: url,
-                        }));
-                    }
-                });
-            } else {
-                difficulties.forEach(diff => {
-                    filesToFind.push(
-                        (async (): Promise<FileInfo | null> => {
-                            const fileName = `${diff}.json`;
-                            const urlsToTry = [
-                                getResourceUrl(settings.proxySource, 'chart', `${songId}.0/${fileName}`)
-                            ];
-
-                            for (const url of urlsToTry) {
-                                if (await checkUrl(url)) {
-                                    return {
-                                        type: `Chart (${diff})`,
-                                        name: fileName,
-                                        url: url,
-                                    };
-                                }
-                            }
-                            return null;
-                        })()
-                    );
-                });
-            }
-
-            // Add charts that exist but are not listed in the metadata
-            getExtraCharts(songId).forEach(extra => {
-                const fileName = `${extra.difficulty}.json`;
-                filesToFind.push(Promise.resolve({
-                    type: `Chart (${extra.difficulty})`,
-                    name: fileName,
-                    url: getResourceUrl(settings.proxySource, 'chart', `${songId}.0/${fileName}`),
-                    tooltip: extra.tooltip,
-                }));
-            });
-
-            try {
-                const results = await Promise.all(filesToFind);
-                if (abortController.signal.aborted) return;
-
-                const foundFiles = results.filter((file): file is FileInfo => file !== null);
-
-                onFilesFound(foundFiles);
-                setFiles(foundFiles);
-            } catch (error) {
-                if (!abortController.signal.aborted) {
-                    console.error('Error fetching files:', error);
-                }
-            } finally {
-                if (!abortController.signal.aborted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        fetchFiles();
-
-        return () => {
-            abortController.abort();
-        };
-    }, [selectedSong, onFilesFound, settings.proxySource]);
-
-    const renderFileIcon = (type: string) => {
-        const className = "w-6 h-6 mr-3 text-slate-400 flex-shrink-0";
-        if (type.startsWith('Illustration')) return <PhotoIcon className={className} />;
-        if (type === 'Audio') return <AudioIcon className={className} />;
-        if (type.startsWith('Chart')) return <DocumentTextIcon className={className} />;
-        return null;
-    }
-
-    const getResolution = (type: string) => {
-        if (type === 'Illustration') return '2048x1080';
-        if (type === 'Illustration (Low-Res)') return '512x270';
-        if (type === 'Illustration (Blur)') return '256x135';
-        return null;
-    };
-
-    const renderContent = () => {
-        if (isLoading) {
+    const renderPreview = (file: FileInfo) => {
+        const chartDiff = getChartDifficulty(file);
+        if (chartDiff) {
+            const color = getDifficultyColor(chartDiff);
+            const level = selectedSong.difficulties?.[chartDiff as keyof NonNullable<Song['difficulties']>]
+                ?? getExtraChart(selectedSong.id, chartDiff)?.level;
             return (
-                <div className="flex items-center justify-center gap-3 text-slate-400 h-40 rounded-b-xl">
-                    <Spinner />
-                    <span>Checking for available files...</span>
+                mobile ? (
+                    <div className="w-14 h-[34px] rounded-[5px] border flex items-center justify-between px-[7px]" style={{ borderColor: `${color}55` }}>
+                        <span className="font-bold text-xs tracking-[.06em]" style={{ color }}>{chartDiff}</span>
+                        {level && <span className="text-xs text-slate-300">{floorLevel(level)}</span>}
+                    </div>
+                ) : (
+                    <div className="w-12 sm:w-16 h-[34px] rounded-[5px] border flex items-center justify-center sm:justify-between sm:px-2" style={{ borderColor: `${color}55` }}>
+                        <span className="font-bold text-[13px] tracking-[.08em]" style={{ color }}>{chartDiff}</span>
+                        {level && <span className="hidden sm:inline text-[13px] text-slate-300">{level}</span>}
+                    </div>
+                )
+            );
+        }
+        if (file.type === 'Audio') {
+            return (
+                <div className={`${previewBox} h-[34px] rounded-[5px] bg-[rgba(34,211,238,.08)] flex items-center justify-center`}>
+                    <svg width="16" height="16" fill="#22d3ee" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
                 </div>
             );
         }
-
-        if (files.length > 0) {
-            return (
-                <div className="overflow-x-auto rounded-b-xl">
-                    <table className="min-w-full text-sm text-left text-slate-300">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">File Type</th>
-                                <th scope="col" className="px-6 py-3">File Name</th>
-                                <th scope="col" className="px-6 py-3 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {files.map(file => {
-                                const isDownloadingThisFile = downloadingUrl === file.url;
-                                const resolution = getResolution(file.type);
-                                return (
-                                <tr key={file.url} className="border-b border-slate-700 hover:bg-slate-800/60 transition-colors duration-150 last:border-b-0">
-                                    <th scope="row" className="px-6 py-4 font-medium whitespace-nowrap flex items-center">
-                                        {renderFileIcon(file.type)}
-                                        <span>{file.type}</span>
-                                        {resolution && settings.advancedInfo && (
-                                            <div className="group relative inline-flex items-center ml-2">
-                                                <button type="button" className="focus:outline-none" aria-label="Resolution Info">
-                                                    <InformationCircleIcon className="w-4 h-4 text-slate-500 hover:text-brand-cyan cursor-help transition-colors duration-200" />
-                                                </button>
-                                                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-auto sm:bottom-full sm:left-1/2 sm:translate-y-0 sm:-translate-x-1/2 mb-0 sm:mb-2 hidden group-hover:block group-focus-within:block w-max max-w-[90vw] sm:max-w-none px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[100]">
-                                                    <span className="text-brand-cyan font-mono text-xs font-bold">{resolution}</span>
-                                                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {file.tooltip && (
-                                            <div className="group relative inline-flex items-center ml-2">
-                                                <button type="button" className="focus:outline-none" aria-label="File Info">
-                                                    <InformationCircleIcon className="w-4 h-4 text-slate-500 hover:text-brand-cyan cursor-help transition-colors duration-200" />
-                                                </button>
-                                                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-auto sm:bottom-full sm:left-1/2 sm:translate-y-0 sm:-translate-x-1/2 mb-0 sm:mb-2 hidden group-hover:block group-focus-within:block w-max max-w-[90vw] sm:max-w-[250px] px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[100] whitespace-normal">
-                                                    <span className="text-xs text-slate-300 font-normal">{file.tooltip}</span>
-                                                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </th>
-                                    <td className="px-6 py-4 font-mono">{file.name}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleDownloadClick(file)}
-                                            disabled={!!downloadingUrl}
-                                            className="inline-flex items-center justify-center gap-2 min-w-[140px] font-bold text-brand-cyan hover:text-cyan-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isDownloadingThisFile ? (
-                                                <>
-                                                    <Spinner />
-                                                    <span>Downloading Asset...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ArrowDownTrayIcon className="w-5 h-5" />
-                                                    <span>Download Asset</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </td>
-                                </tr>
-                            )})}
-                        </tbody>
-                    </table>
-                </div>
-            );
-        }
-
+        // Per-difficulty illustrations have no low-res variant, so they preview from their own file.
+        const src = /^Illustration \((EZ|HD|IN|AT)\)$/.test(file.type) ? file.url : lowResUrl;
         return (
-            <div className="flex items-center justify-center h-40 text-slate-500 rounded-b-xl">
-                <p>No files found for this song.</p>
+            <div className={`${previewBox} h-[34px] rounded-[5px] overflow-hidden bg-[repeating-linear-gradient(135deg,#1e293b_0_4px,#172033_4px_8px)]`}>
+                <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                    style={file.type === 'Illustration (Blur)' ? { filter: 'blur(2px)' } : undefined}
+                />
             </div>
         );
     };
 
-    if (!selectedSong) {
+    const describe = (file: FileInfo): { label: string; meta: string } => {
+        const chartDiff = getChartDifficulty(file);
+        if (chartDiff) return { label: `Chart · ${chartDiff}`, meta: 'JSON' };
+        if (file.type === 'Audio') return { label: 'Music', meta: 'OGG' };
+        return { label: file.type, meta: RESOLUTIONS[file.type] ?? 'PNG' };
+    };
+
+    // Phones have no room for the meta/size columns, so the second line carries the format instead.
+    const mobileMeta = (file: FileInfo): string => {
+        if (getChartDifficulty(file)) return `JSON · ${file.name}`;
+        if (file.type === 'Audio') return `OGG · ${file.name}`;
+        return `PNG · ${RESOLUTIONS[file.type] ?? file.name}`;
+    };
+
+    const groups = [
+        { label: 'ILLUSTRATIONS', items: files.filter(f => f.type.startsWith('Illustration')) },
+        { label: 'AUDIO', items: files.filter(f => f.type === 'Audio') },
+        { label: 'CHARTS', items: files.filter(f => f.type.startsWith('Chart')) },
+    ].filter(g => g.items.length > 0);
+
+    if (isLoading) {
         return (
-            <div className="relative w-full mx-auto overflow-hidden rounded-xl border border-dashed border-slate-700 bg-transparent p-6 text-center">
-                <p className="text-slate-500">Select a song from the dropdown menu above to view available files for download.</p>
-                <p className="text-slate-500"></p>
+            <div className="flex items-center justify-center gap-3 text-sm text-slate-400 py-10">
+                <Spinner />
+                <span>Checking for available files…</span>
             </div>
         );
     }
-    
+
+    if (groups.length === 0) {
+        return <p className="py-10 text-center text-sm text-slate-500">No files found for this song.</p>;
+    }
+
     return (
         <>
-            <AssetDownloadWarningPopup 
-                isOpen={showAssetWarning}
+            <AssetDownloadWarningPopup
+                isOpen={!!pendingDownload}
                 onConfirm={handleWarningConfirm}
-                onCancel={handleWarningCancel}
+                onCancel={() => setPendingDownload(null)}
             />
-            <div className="relative w-full mx-auto rounded-xl border border-slate-700 bg-slate-800/50 shadow-lg backdrop-blur-sm">
-                 <div className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 ${isCollapsed ? 'rounded-xl' : 'border-b border-slate-700 rounded-t-xl'}`}>
-                    <h3 className="font-bold text-lg text-slate-200 flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setIsCollapsed(c => !c)}
-                            aria-expanded={!isCollapsed}
-                            aria-label={isCollapsed ? 'Expand file table' : 'Collapse file table'}
-                            className="flex items-center gap-2 text-left hover:text-white transition-colors duration-200 focus:outline-none"
-                        >
-                            <ChevronDownIcon className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                            <span>Individual Files for <span className="text-brand-cyan">{selectedSong.name}</span></span>
-                        </button>
-
-                        {settings.advancedInfo && (
-                            <div className="group relative inline-flex items-center">
-                                <button type="button" className="focus:outline-none" aria-label="Show Song ID">
-                                    <InformationCircleIcon className="w-5 h-5 text-slate-500 hover:text-brand-cyan cursor-help transition-colors duration-200" />
-                                </button>
-                                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-auto sm:bottom-full sm:left-1/2 sm:translate-y-0 sm:-translate-x-1/2 mb-0 sm:mb-2 hidden group-hover:block group-focus-within:block w-max max-w-[90vw] sm:max-w-[250px] px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[100]">
-                                    <div className="text-center">
-                                        <span className="text-slate-500 font-bold block mb-0.5 uppercase tracking-wider text-[10px]">Song ID</span>
-                                        <span className="font-mono text-sm text-brand-cyan select-all break-all leading-tight">{selectedSong.id}</span>
+            <div className={`flex flex-col ${mobile ? 'gap-6' : 'gap-7'}`}>
+                {groups.map(group => (
+                    <div key={group.label} className="flex flex-col gap-2">
+                        <span className="font-mono text-[10px] font-medium tracking-[.14em] text-slate-500">{group.label}</span>
+                        <div className="flex flex-col rounded-xl border border-white/[.07] bg-white/[.02] overflow-hidden backdrop-blur-sm">
+                            {group.items.map((file, i) => {
+                                const { label, meta } = describe(file);
+                                const isDownloadingThis = downloadingUrl === file.url;
+                                return (
+                                    <div
+                                        key={file.url}
+                                        className={`grid items-center ${mobile ? 'grid-cols-[56px_minmax(0,1fr)_44px] gap-3 pl-3 pr-1.5 py-2.5' : 'grid-cols-[48px_minmax(0,1fr)_36px] sm:grid-cols-[64px_minmax(0,1fr)_auto_auto_36px] gap-3 sm:gap-4 px-3 py-2.5 hover:bg-[rgba(34,211,238,.04)]'} transition-colors ${i ? 'border-t border-white/[.06]' : ''}`}
+                                        title={settings.advancedInfo ? file.url : undefined}
+                                    >
+                                        {renderPreview(file)}
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="flex items-center gap-1.5 text-sm leading-[1.3] text-slate-200">
+                                                {label}
+                                                {file.tooltip && (
+                                                    <span title={file.tooltip} className="text-slate-500 hover:text-[#22d3ee] cursor-help">
+                                                        <InformationCircleIcon className="w-3.5 h-3.5" />
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span className="font-mono text-[11px] text-slate-500 truncate">{mobile ? mobileMeta(file) : file.name}</span>
+                                        </div>
+                                        {!mobile && <span className="hidden sm:block font-mono text-[11px] text-slate-500">{meta}</span>}
+                                        {!mobile && <span className="hidden sm:block font-mono text-[11px] text-slate-600 min-w-14 text-right">{formatBytes(file.size)}</span>}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDownloadClick(file)}
+                                            disabled={!!downloadingUrl}
+                                            aria-label={`Download ${label}`}
+                                            title={`Download ${file.name}`}
+                                            className={`${mobile ? 'w-11 h-11 rounded-[10px]' : 'w-9 h-9 rounded-lg'} flex items-center justify-center text-[#22d3ee] hover:bg-[rgba(34,211,238,.12)] transition-colors disabled:cursor-not-allowed ${isDownloadingThis ? '' : 'disabled:opacity-40'}`}
+                                        >
+                                            {isDownloadingThis ? <Spinner /> : <ArrowDownTrayIcon className={mobile ? 'w-[18px] h-[18px]' : 'w-[17px] h-[17px]'} />}
+                                        </button>
                                     </div>
-                                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
-                                </div>
-                            </div>
-                        )}
-                    </h3>
-                    <button
-                        type="button"
-                        onClick={onExportAllAssets}
-                        disabled={isExporting || files.length === 0}
-                        className={`relative overflow-hidden px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 min-w-[190px] ${
-                            isExporting || files.length === 0
-                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                : 'bg-indigo-700 hover:bg-indigo-800 text-white'
-                        }`}
-                    >
-                        {exportState.type === 'phira' ? (
-                            <>
-                                <Spinner />
-                                <span>Exporting...</span>
-                            </>
-                        ) : (
-                            'Export All Assets'
-                        )}
-                        {exportState.type === 'phira' && (
-                            <div
-                                className="absolute bottom-0 left-0 h-0.5 bg-brand-cyan/75 transition-all duration-150"
-                                style={{ width: `${exportState.progress.toFixed(0)}%` }}
-                            />
-                        )}
-                    </button>
-                </div>
-                {!isCollapsed && renderContent()}
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </div>
         </>
     );

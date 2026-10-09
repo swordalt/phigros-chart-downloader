@@ -8,7 +8,7 @@ export interface ProxySourceOption {
 }
 
 export const PROXY_SOURCES: ProxySourceOption[] = [
-    { id: 'github', label: 'GitHub (Default)', description: 'Official GitHub servers. Fastest and most reliable option if GitHub is available in your region.' },
+    { id: 'github', label: 'GitHub', description: 'Official GitHub servers. Fastest and most reliable option if GitHub is available in your region.' },
     { id: 'jsdelivr', label: 'jsDelivr', description: 'Global GitHub CDN mirror.' },
     { id: 'jsdelivr-gcore', label: 'jsDelivr - Gcore', description: "An alternative for jsDelivr that uses alternate CDNs." },
     { id: 'ghproxy-net', label: 'ghproxy.net', description: 'Community GitHub proxy.' },
@@ -43,6 +43,12 @@ export const ILLUSTRATION_DIFFICULTIES = ['EZ', 'HD', 'IN', 'AT'];
 
 export function hasPerDifficultyIllustrations(songId: string): boolean {
     return PER_DIFFICULTY_ILLUSTRATION_SONGS.has(songId);
+}
+
+// Blur thumbnail for the song list; per-difficulty songs use their AT variant.
+export function getBlurIllustrationUrl(proxySource: ProxySource, songId: string): string {
+    const name = hasPerDifficultyIllustrations(songId) ? `${songId}_AT.png` : `${songId}.png`;
+    return getResourceUrl(proxySource, 'illustrationBlur', name);
 }
 
 export function getDifficultyIllustrationUrl(proxySource: ProxySource, songId: string, difficulty: string): string {

@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
-import { useSettings } from '../contexts/SettingsContext';
-import { PauseIcon, PlayIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from './Icons';
+import React, { useEffect, useRef, useState } from 'react';
+import { resourceFetch } from '../utils/githubAuth';
+import { SpeakerWaveIcon, SpeakerXMarkIcon } from './Icons';
 
 type WebkitAudioWindow = Window & typeof globalThis & {
     webkitAudioContext?: typeof AudioContext;
@@ -9,8 +9,8 @@ type WebkitAudioWindow = Window & typeof globalThis & {
 
 interface AudioPlayerControlProps {
     audio: HTMLAudioElement;
-    songName?: string;
-    artist?: string;
+    /** Full-width pill with larger touch targets, used by the phone layout. */
+    variant?: 'default' | 'mobile';
 }
 
 const isIosBrowser = () => {
@@ -34,7 +34,7 @@ const isValidDuration = (duration: number | undefined) => (
 );
 
 const decodeAudioDuration = async (src: string, signal: AbortSignal) => {
-    const response = await fetch(src, { cache: 'force-cache', signal });
+    const response = await resourceFetch(src, { cache: 'force-cache', signal });
     if (!response.ok) {
         throw new Error(`Audio duration probe failed with ${response.status}`);
     }
@@ -61,20 +61,16 @@ const decodeAudioDuration = async (src: string, signal: AbortSignal) => {
     }
 };
 
-export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, songName, artist }) => {
-    const { setSettings } = useSettings();
+export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, variant = 'default' }) => {
+    const mobile = variant === 'mobile';
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [decodedDuration, setDecodedDuration] = useState<number | null>(null);
-    const [volume, setVolume] = useState(0.5);
     const [isMuted, setIsMuted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isPlaying, setIsPlaying] = useState(!audio.paused);
     const [isFullyLoaded, setIsFullyLoaded] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
-    
-    // We can use isHovered for styling if needed
-    void isHovered;
+    const seekBarRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setDecodedDuration(null);
@@ -151,7 +147,6 @@ export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, s
         };
 
         const updateVolume = () => {
-            setVolume(audio.volume);
             setIsMuted(audio.muted);
         };
         const updatePlayState = () => {
@@ -182,7 +177,6 @@ export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, s
         updateDuration();
         checkBuffered();
         setCurrentTime(audio.currentTime || 0);
-        setVolume(audio.volume);
         setIsMuted(audio.muted);
         setIsPlaying(!audio.paused);
 
@@ -209,40 +203,31 @@ export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, s
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let time = Number(e.target.value);
-        // Clamp to valid range
-        if (duration > 0 && time > duration) {
-            time = duration;
-        }
-        if (time < 0) time = 0;
-        
+    const canSeek = duration > 0 && isFullyLoaded;
+    const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+
+    const seekToPointer = (clientX: number) => {
+        const rect = seekBarRef.current?.getBoundingClientRect();
+        if (!rect || !canSeek) return;
+        const time = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * duration;
         setCurrentTime(time);
         audio.currentTime = time;
     };
-    
-    const handleDragStart = () => {
-        setIsDragging(true);
-    };
 
-    const handleDragEnd = () => {
+    const handleSeekEnd = () => {
         setIsDragging(false);
         // Resume playback if it was paused (e.g. ended) and we seeked to a valid position
-        if (audio.paused && duration > 0 && currentTime < duration) {
+        if (audio.paused && duration > 0 && audio.currentTime < duration) {
             audio.play().catch(err => console.warn("Could not resume playback:", err));
         }
     };
-    
-    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = Number(e.target.value);
-        audio.volume = val;
-        setVolume(val);
-        setSettings(prev => ({ ...prev, newUiAudioVolume: val }));
 
-        if (val > 0 && isMuted) {
-            audio.muted = false;
-            setIsMuted(false);
-        }
+    const handleSeekKey = (e: React.KeyboardEvent) => {
+        if (!canSeek) return;
+        const delta = e.key === 'ArrowRight' ? 5 : e.key === 'ArrowLeft' ? -5 : 0;
+        if (!delta) return;
+        e.preventDefault();
+        audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + delta));
     };
 
     const toggleMute = () => {
@@ -260,96 +245,73 @@ export const AudioPlayerControl: React.FC<AudioPlayerControlProps> = ({ audio, s
     };
 
     return (
-        <div 
-            className="flex flex-col items-start w-full sm:w-[420px] bg-slate-800/80 p-3 rounded-lg border border-slate-700 backdrop-blur-md shadow-lg transition-all hover:bg-slate-800"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-             <div className="flex items-center justify-between w-full mb-1 overflow-hidden">
-                <div className="flex-1 overflow-hidden relative h-5">
-                    <div className={`whitespace-nowrap absolute top-0 left-0 flex items-center ${
-                        ((songName?.length || 0) + (artist?.length || 0) > 30)
-                            ? 'animate-marquee' 
-                            : ''
-                    }`}>
-                        <span className="text-xs text-brand-cyan uppercase tracking-wider mr-8">
-                            Playing: <span className="font-bold">{songName || 'Unknown'}</span> by <span className="font-bold">{artist || 'Unknown'}</span>
-                        </span>
-                        {/* Duplicate for seamless scrolling */}
-                        {((songName?.length || 0) + (artist?.length || 0) > 30) && (
-                            <span className="text-xs text-brand-cyan uppercase tracking-wider mr-8">
-                                Playing: <span className="font-bold">{songName || 'Unknown'}</span> by <span className="font-bold">{artist || 'Unknown'}</span>
-                            </span>
-                        )}
-                    </div>
+        <div className={`flex items-center gap-3 rounded-full bg-[rgba(9,11,16,.6)] backdrop-blur-md border border-white/[.08] ${mobile ? 'w-full p-1.5' : 'flex-none py-2 pl-2 pr-3.5'}`}>
+            <button
+                type="button"
+                onClick={togglePlay}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                className={`${mobile ? 'w-10 h-10' : 'w-8 h-8'} flex-none rounded-full bg-[#22d3ee] hover:bg-[#67e8f9] flex items-center justify-center transition-colors`}
+            >
+                {isPlaying ? (
+                    <svg width={mobile ? 18 : 16} height={mobile ? 18 : 16} fill="#090b10" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                ) : (
+                    <svg width={mobile ? 18 : 16} height={mobile ? 18 : 16} fill="#090b10" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                )}
+            </button>
+
+            <div
+                ref={seekBarRef}
+                role="slider"
+                tabIndex={canSeek ? 0 : -1}
+                aria-label="Seek"
+                aria-valuemin={0}
+                aria-valuemax={Math.round(duration)}
+                aria-valuenow={Math.round(currentTime)}
+                aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+                aria-disabled={!canSeek}
+                title={canSeek ? undefined : 'Loading audio…'}
+                onKeyDown={handleSeekKey}
+                onPointerDown={(e) => {
+                    if (!canSeek) return;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    setIsDragging(true);
+                    seekToPointer(e.clientX);
+                }}
+                onPointerMove={(e) => {
+                    if (e.currentTarget.hasPointerCapture(e.pointerId)) seekToPointer(e.clientX);
+                }}
+                onPointerUp={handleSeekEnd}
+                onPointerCancel={() => setIsDragging(false)}
+                className={`group relative ${mobile ? 'flex-1 min-w-0 h-8' : 'w-20 sm:w-[140px] h-4'} flex items-center touch-none focus:outline-none ${canSeek ? 'cursor-pointer' : 'cursor-progress'}`}
+            >
+                <div className="w-full h-[3px] rounded-sm bg-white/[.12] overflow-hidden">
+                    <div className={`h-full rounded-sm bg-[#22d3ee] ${canSeek ? '' : 'opacity-50'}`} style={{ width: `${progress * 100}%` }} />
                 </div>
-                {!isFullyLoaded && duration > 0 && (
-                    <span className="text-[10px] text-slate-400 italic flex items-center gap-1 ml-2 shrink-0">
-                        <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>
-                        Loading...
-                    </span>
+                {canSeek && (
+                    <div
+                        className={mobile
+                            ? 'absolute w-3 h-3 -ml-1.5 rounded-full bg-slate-100'
+                            : 'absolute w-2.5 h-2.5 -ml-[5px] rounded-full bg-slate-100 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity'}
+                        style={{ left: `${progress * 100}%` }}
+                    />
                 )}
             </div>
-            
-            <div className="flex items-center gap-3 w-full">
-                {/* Play/Pause Button */}
-                <button
-                    onClick={togglePlay}
-                    className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-cyan/20 text-brand-cyan hover:bg-brand-cyan hover:text-slate-900 transition-all focus:outline-none shrink-0"
-                >
-                    {isPlaying ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5 ml-0.5" />}
-                </button>
 
-                {/* Progress Bar - Improved sizing to prevent overflow */}
-                <input 
-                    type="range" 
-                    min={0} 
-                    max={duration || 0} 
-                    value={currentTime} 
-                    onChange={handleSeek}
-                    onMouseDown={handleDragStart}
-                    onMouseUp={handleDragEnd}
-                    onTouchStart={handleDragStart}
-                    onTouchEnd={handleDragEnd}
-                    disabled={!duration || !isFullyLoaded}
-                    className="flex-1 min-w-0 h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-brand-cyan hover:accent-cyan-300 focus:outline-none focus:ring-2 focus:ring-brand-cyan/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+            <span className="flex-none font-mono text-[11px] font-medium text-slate-400 tabular-nums whitespace-nowrap">
+                {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
 
-                {/* Time Display */}
-                <div className="flex gap-0.5 text-[10px] font-mono text-slate-300 min-w-[65px] justify-end tabular-nums shrink-0">
-                    <span>{formatTime(currentTime)}</span>
-                    <span className="text-slate-500">/</span>
-                    <span>{formatTime(duration)}</span>
-                </div>
-
-                {/* Vertical Divider */}
-                <div className="w-px h-4 bg-slate-600 shrink-0 hidden sm:block"></div>
-
-                {/* Volume Control */}
-                <div className="hidden sm:flex items-center gap-2 group/volume shrink-0">
-                    <button 
-                        onClick={toggleMute}
-                        className="text-slate-400 hover:text-white transition-colors focus:outline-none"
-                        title={isMuted ? "Unmute" : "Mute"}
-                    >
-                        {isMuted || volume === 0 ? (
-                            <SpeakerXMarkIcon className="w-4 h-4" />
-                        ) : (
-                            <SpeakerWaveIcon className="w-4 h-4" />
-                        )}
-                    </button>
-                    <input 
-                        type="range" 
-                        min={0} 
-                        max={1} 
-                        step={0.05}
-                        value={isMuted ? 0 : volume} 
-                        onChange={handleVolumeChange}
-                        className="w-12 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-slate-400 hover:accent-white focus:outline-none"
-                        title={`Volume: ${Math.round(volume * 100)}%`}
-                    />
-                </div>
-            </div>
+            <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+                title={isMuted ? 'Unmute' : 'Mute'}
+                className={mobile
+                    ? 'w-10 h-10 flex-none rounded-full flex items-center justify-center text-slate-400'
+                    : 'hidden sm:block text-slate-500 hover:text-slate-200 transition-colors'}
+            >
+                {isMuted ? <SpeakerXMarkIcon className={mobile ? 'w-[18px] h-[18px]' : 'w-4 h-4'} /> : <SpeakerWaveIcon className={mobile ? 'w-[18px] h-[18px]' : 'w-4 h-4'} />}
+            </button>
         </div>
     );
 };

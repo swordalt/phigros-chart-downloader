@@ -4,12 +4,13 @@ import { Settings } from '../defaultSettings';
 import { ProxySource, getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from '../utils/resourceUrls';
 import { OfficialChart, officialToRpe } from '../utils/chartConverter';
 import { getExtraChart, getExtraCharts } from '../extraCharts';
+import { resourceFetch, setGithubToken } from '../utils/githubAuth';
 
 // Define message types for type safety
 export type ExportMessage =
-    | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song }
-    | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings }
-    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource };
+    | { type: 'exportAllAssets'; files: FileInfo[]; selectedSong: Song; githubToken?: string }
+    | { type: 'exportChart'; files: FileInfo[]; selectedSong: Song; selectedDifficulty: string; settings: Settings; githubToken?: string }
+    | { type: 'exportBulkAssets'; songs: Song[]; delaySeconds: number; proxySource: ProxySource; githubToken?: string };
 
 export type WorkerResponse =
     | { type: 'progress'; progress: number }
@@ -21,6 +22,7 @@ const ctx: Worker = self as unknown as Worker;
 
 ctx.onmessage = async (event: MessageEvent<ExportMessage>) => {
     const { type } = event.data;
+    setGithubToken(event.data.githubToken ?? '');
 
     try {
         if (type === 'exportAllAssets') {
@@ -41,7 +43,7 @@ const handleExportAllAssets = async (files: FileInfo[], selectedSong: Song) => {
     if (!chartsFolder) throw new Error("Could not create 'charts' folder in zip.");
 
     const filePromises = files.map(file =>
-        fetch(file.url, { referrerPolicy: 'no-referrer' }).then(res => {
+        resourceFetch(file.url, { referrerPolicy: 'no-referrer' }).then(res => {
             if (!res.ok) throw new Error(`Failed to fetch ${file.url}: ${res.statusText}`);
             return res.blob();
         })
@@ -145,9 +147,9 @@ Charter: {CHARTER}`;
         .replace('{CHARTER}', charter);
 
     const [chartBlob, illustrationBlob, audioBlob] = await Promise.all([
-        fetch(chartFile.url).then(res => res.blob()),
-        fetch(illustrationFile.url).then(res => res.blob()),
-        fetch(audioFile.url).then(res => res.blob()),
+        resourceFetch(chartFile.url).then(res => res.blob()),
+        resourceFetch(illustrationFile.url).then(res => res.blob()),
+        resourceFetch(audioFile.url).then(res => res.blob()),
     ]);
 
     const convertToRpe = settings.chartFormatConversion === 'rpe';
@@ -263,7 +265,7 @@ const handleExportBulkAssets = async (songs: Song[], delaySeconds: number, proxy
             });
 
             try {
-                const res = await fetch(file.url, { referrerPolicy: 'no-referrer' });
+                const res = await resourceFetch(file.url, { referrerPolicy: 'no-referrer' });
                 if (res.ok) {
                     const blob = await res.blob();
                     if (file.type.startsWith('Chart')) {

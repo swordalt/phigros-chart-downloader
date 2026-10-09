@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
-import { VersionCard } from './components/VersionCard';
 import { SongSelector } from './components/SongSelector';
-import { FileTable } from './components/FileTable';
-import { DifficultySelector } from './components/DifficultySelector';
+import { SongWorkspace, ExportState } from './components/SongWorkspace';
 import { Spinner } from './components/Spinner';
 import { BlacklistWarningPopup } from './components/BlacklistWarningPopup';
 import { isBlacklisted, BlacklistEntry } from './blacklist';
@@ -13,22 +11,32 @@ import FileSaver from 'file-saver';
 import { SettingsPopup, SettingsCategory } from './components/SettingsPopup';
 import { FAQPopup } from './components/FAQPopup';
 import { AboutPopup } from './components/AboutPopup';
+import { InstructionPopup } from './components/InstructionPopup';
 import { ResourceErrorPopup } from './components/ResourceErrorPopup';
+import { Button } from './components/ui/Dialog';
 import { useSettings } from './contexts/SettingsContext';
+import { resourceFetch } from './utils/githubAuth';
 import { useResourceError } from './contexts/ResourceErrorContext';
-import { AudioVisualizer } from './components/AudioVisualizer';
-import { getSongEffect } from './song-effects';
-import { SongEffectRenderer } from './components/SongEffectRenderer';
-import { AudioPlayerControl } from './components/AudioPlayerControl';
-import { Song, FileInfo, SortConfig } from './types';
+import { Song, SortConfig } from './types';
 import { fetchVersion, fetchSongs, sendPatchedChartDownloadNotification } from './utils/api';
 import { registerSongAliasesConsoleHelper } from './utils/songAliasesExport';
 import { exportAllAssets, exportChart, exportBulkAssets } from './utils/export';
 import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from './utils/resourceUrls';
+import { useSongFiles, getChartDifficulty } from './hooks/useSongFiles';
+import { useIsMobile } from './hooks/useIsMobile';
+import { MobileLayout } from './components/mobile/MobileLayout';
+
+const REPO_URL = 'https://github.com/swordalt/phigros-chart-downloader/';
+const INSTRUCTION_SHOWN_KEY = 'phigrosDownloader_instructionShown';
 
 const App: React.FC = () => {
     const { settings } = useSettings();
     const { reportResourceError } = useResourceError();
+    const isMobile = useIsMobile();
+
+    useEffect(() => {
+        document.documentElement.dataset.blur = settings.newUiBlur ? 'on' : 'off';
+    }, [settings.newUiBlur]);
     const [version, setVersion] = useState<string | null>(null);
     const [isLoadingVersion, setIsLoadingVersion] = useState<boolean>(true);
     const [errorVersion, setErrorVersion] = useState<string | null>(null);
@@ -38,11 +46,10 @@ const App: React.FC = () => {
     const [errorSongs, setErrorSongs] = useState<string | null>(null);
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ type: 'alphanumerical', direction: 'asc' });
-    
-    const [files, setFiles] = useState<FileInfo[]>([]);
-    const [availableDifficulties, setAvailableDifficulties] = useState<string[]>([]);
-    const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
-    const [exportState, setExportState] = useState<{ type: 'phira' | 'chart' | null; progress: number }>({ type: null, progress: 0 });
+
+    // The difficulty the user last picked; carried over to the next song when it has that chart.
+    const [preferredDifficulty, setPreferredDifficulty] = useState<string>('IN');
+    const [exportState, setExportState] = useState<ExportState>({ type: null, progress: 0 });
     const [bulkExportState, setBulkExportState] = useState<{
         isExporting: boolean;
         currentFile: string;
@@ -54,7 +61,7 @@ const App: React.FC = () => {
     const [bulkLimit, setBulkLimit] = useState<string>('');
     const [blacklistWarning, setBlacklistWarning] = useState<(BlacklistEntry & { exportType: 'phira' | 'chart' }) | null>(null);
     const [patchedChartPrompt, setPatchedChartPrompt] = useState<PatchedChartEntry | null>(null);
-    const [showDifficultyWarning, setShowDifficultyWarning] = useState<boolean>(false);
+    const [showInstruction, setShowInstruction] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFaqOpen, setIsFaqOpen] = useState(false);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -63,7 +70,15 @@ const App: React.FC = () => {
         setSettingsCategory(category);
         setIsSettingsOpen(true);
     };
-    
+
+    const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+    const toastTimeoutRef = useRef<number | null>(null);
+    const showToast = useCallback((text: string) => {
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        setToast({ id: Date.now(), text });
+        toastTimeoutRef.current = window.setTimeout(() => setToast(null), 2600);
+    }, []);
+
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Background and Audio management
@@ -71,26 +86,31 @@ const App: React.FC = () => {
     const [isBgLoaded, setIsBgLoaded] = useState<boolean>(false);
     const [activeAudio, setActiveAudio] = useState<HTMLAudioElement | null>(null);
 
-    const warningTimeoutRef = useRef<number | null>(null);
     const initialSongSelected = useRef<boolean>(false);
 
-    // Determine current song effect
-    const activeEffect = settings.useNewUi && settings.newUiSongSpecificEffects && selectedSong 
-        ? getSongEffect(selectedSong.name) 
-        : null;
+    const { files, isLoading: isLoadingFiles } = useSongFiles(selectedSong, settings.proxySource);
+    const availableDifficulties = React.useMemo(
+        () => files.map(getChartDifficulty).filter((diff): diff is string => diff !== null),
+        [files]
+    );
+    const selectedDifficulty = availableDifficulties.length === 0
+        ? null
+        : availableDifficulties.includes(preferredDifficulty)
+            ? preferredDifficulty
+            : availableDifficulties[availableDifficulties.length - 1];
 
     const sortedSongs = React.useMemo(() => {
-        let result = [...songs];
-        
+        const result = [...songs];
+
         if (sortConfig.type === 'alphanumerical') {
             result.sort((a, b) => a.name.localeCompare(b.name));
         }
         // If 'unsorted', we rely on the original order (which is essentially what songs is)
-        
+
         if (sortConfig.direction === 'desc') {
             result.reverse();
         }
-        
+
         return result;
     }, [songs, sortConfig]);
 
@@ -142,25 +162,20 @@ const App: React.FC = () => {
 
     useEffect(() => {
         return () => {
-            if (warningTimeoutRef.current) {
-                clearTimeout(warningTimeoutRef.current);
-            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         };
     }, []);
 
     const handleSongSelect = useCallback((song: Song | null) => {
         setSelectedSong(song);
-        setSelectedDifficulty(null);
-        setAvailableDifficulties([]);
-        setFiles([]);
     }, []);
-    
+
     useEffect(() => {
         if (songs.length > 0 && !initialSongSelected.current) {
             initialSongSelected.current = true;
             const urlParams = new URLSearchParams(window.location.search);
             const songIdFromUrl = urlParams.get('song');
-            
+
             if (songIdFromUrl) {
                 const songToSelect = songs.find(s => s.id === songIdFromUrl);
                 if (songToSelect) {
@@ -170,70 +185,69 @@ const App: React.FC = () => {
         }
     }, [songs, handleSongSelect]);
 
-    // Enhanced New UI with preloading and audio state
+    // Illustration behind the workspace. Songs with per-difficulty art follow the selected difficulty.
+    const illustrationUrl = selectedSong
+        ? hasPerDifficultyIllustrations(selectedSong.id)
+            ? getDifficultyIllustrationUrl(settings.proxySource, selectedSong.id, selectedDifficulty && ['EZ', 'HD', 'IN', 'AT'].includes(selectedDifficulty) ? selectedDifficulty : 'AT')
+            : getResourceUrl(settings.proxySource, 'illustration', `${selectedSong.id}.png`)
+        : null;
+
     useEffect(() => {
-        if (!settings.useNewUi || !selectedSong || settings.bulkDownloadMode) {
-            setActiveAudio(prev => {
-                if (prev) prev.pause();
-                return null;
-            });
+        setIsBgLoaded(false);
+        if (!illustrationUrl) {
             setBgImage(null);
-            setIsBgLoaded(false);
             return;
         }
 
-        const songId = selectedSong.id;
-        const illustrationUrl = hasPerDifficultyIllustrations(songId)
-            ? getDifficultyIllustrationUrl(settings.proxySource, songId, 'AT')
-            : getResourceUrl(settings.proxySource, 'illustration', `${songId}.png`);
-
-        // Reset loaded state for smooth transition
-        setIsBgLoaded(false);
-        
-        // Preload image
+        let cancelled = false;
         const img = new Image();
         img.src = illustrationUrl;
         img.onload = () => {
+            if (cancelled) return;
             setBgImage(illustrationUrl);
             setIsBgLoaded(true);
         };
         img.onerror = () => {
+            if (cancelled) return;
             setBgImage(null);
             setIsBgLoaded(false);
         };
+        return () => {
+            cancelled = true;
+        };
+    }, [illustrationUrl]);
 
-        // Audio Setup - Only if preview is enabled
-        if (settings.newUiAudioPreview) {
-            const audioUrl = getResourceUrl(settings.proxySource, 'music', `${songId}.ogg`);
-            const audio = new Audio();
-            // IMPORTANT: Must set crossOrigin to anonymous BEFORE loading to allow Web Audio API analysis
-            audio.crossOrigin = "anonymous"; 
-            audio.src = audioUrl;
-            audio.loop = settings.newUiLoopAudio;
-            audio.volume = settings.newUiAudioVolume;
-
-            setActiveAudio(prev => {
-                if (prev) prev.pause();
-                return audio;
-            });
-
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.warn("Autoplay blocked or audio failed to load:", error);
-                });
-            }
-        } else {
+    // Audio preview
+    useEffect(() => {
+        if (!selectedSong || settings.bulkDownloadMode || !settings.newUiAudioPreview) {
             setActiveAudio(prev => {
                 if (prev) prev.pause();
                 return null;
             });
+            return;
         }
 
-        return () => {
-            // No cleanup needed for activeAudio here as setActiveAudio logic handles pause
-        };
-    }, [selectedSong, settings.useNewUi, settings.newUiAudioPreview, settings.bulkDownloadMode, settings.proxySource]);
+        const audioUrl = getResourceUrl(settings.proxySource, 'music', `${selectedSong.id}.ogg`);
+        const audio = new Audio();
+        // IMPORTANT: Must set crossOrigin to anonymous BEFORE loading to allow Web Audio API analysis
+        audio.crossOrigin = "anonymous";
+        audio.src = audioUrl;
+        audio.loop = settings.newUiLoopAudio;
+        audio.volume = settings.newUiAudioVolume;
+
+        setActiveAudio(prev => {
+            if (prev) prev.pause();
+            return audio;
+        });
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("Autoplay blocked or audio failed to load:", error);
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedSong, settings.newUiAudioPreview, settings.bulkDownloadMode, settings.proxySource]);
 
     // Update audio loop property immediately when setting changes
     useEffect(() => {
@@ -249,33 +263,22 @@ const App: React.FC = () => {
         }
     }, [activeAudio, settings.newUiAudioVolume]);
 
-    // Cleanup audio on unmount or song change via the effect above essentially
+    // Stop audio when the audio element is replaced or the app unmounts
     useEffect(() => {
-         return () => {
+        return () => {
             if (activeAudio) activeAudio.pause();
-         }
-    }, []);
-
-
-    const handleFilesFound = useCallback((foundFiles: FileInfo[]) => {
-        setFiles(foundFiles);
-        const chartDifficulties = foundFiles
-            .map(file => {
-                const match = file.type.match(/Chart \(([^)]+)\)/);
-                return match ? match[1] : null;
-            })
-            .filter((diff): diff is string => diff !== null);
-        setAvailableDifficulties(chartDifficulties);
-    }, []);
+        };
+    }, [activeAudio]);
 
     const executeAllAssetsExport = async () => {
         if (!selectedSong || files.length === 0 || exportState.type) return;
 
         setExportState({ type: 'phira', progress: 0 });
         try {
-            await exportAllAssets(files, selectedSong, settings, (progress) => {
+            const fileName = await exportAllAssets(files, selectedSong, settings, (progress) => {
                 setExportState(prev => ({ ...prev, progress }));
             });
+            showToast(`Exported all assets · ${fileName}`);
         } catch (error) {
             console.error("Failed to export all assets: ", error);
             reportResourceError(
@@ -293,9 +296,10 @@ const App: React.FC = () => {
 
         setExportState({ type: 'chart', progress: 0 });
         try {
-            await exportChart(files, selectedSong, selectedDifficulty, settings, (progress) => {
+            const fileName = await exportChart(files, selectedSong, selectedDifficulty, settings, (progress) => {
                 setExportState(prev => ({ ...prev, progress }));
             });
+            showToast(`Exported ${fileName}`);
         } catch (error) {
             console.error("Failed to export as chart: ", error);
             reportResourceError(
@@ -313,19 +317,9 @@ const App: React.FC = () => {
         executeAllAssetsExport();
     };
 
-    const handleExportChart = () => {
-        if (!selectedSong || exportState.type) return;
-
-        if (!selectedDifficulty) {
-            setShowDifficultyWarning(true);
-            if (warningTimeoutRef.current) {
-                clearTimeout(warningTimeoutRef.current);
-            }
-            warningTimeoutRef.current = window.setTimeout(() => {
-                setShowDifficultyWarning(false);
-            }, 3000);
-            return;
-        }
+    // Patched chart → known-issue warning → export.
+    const proceedChartExport = () => {
+        if (!selectedSong || !selectedDifficulty) return;
 
         const patched = getPatchedChart(selectedSong.id, selectedDifficulty);
         if (patched) {
@@ -334,6 +328,24 @@ const App: React.FC = () => {
         }
 
         startChartExport();
+    };
+
+    const handleExportChart = () => {
+        if (!selectedSong || !selectedDifficulty || exportState.type) return;
+
+        // The "Before you play" notice is shown once, before the first export.
+        if (!localStorage.getItem(INSTRUCTION_SHOWN_KEY)) {
+            setShowInstruction(true);
+            return;
+        }
+
+        proceedChartExport();
+    };
+
+    const handleInstructionConfirm = () => {
+        localStorage.setItem(INSTRUCTION_SHOWN_KEY, 'true');
+        setShowInstruction(false);
+        proceedChartExport();
     };
 
     const startChartExport = () => {
@@ -358,11 +370,12 @@ const App: React.FC = () => {
 
         setExportState({ type: 'chart', progress: 0 });
         try {
-            const response = await fetch(patched.url);
+            const response = await resourceFetch(patched.url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const blob = await response.blob();
             FileSaver.saveAs(blob, patched.fileName);
             sendPatchedChartDownloadNotification(selectedSong.name, patched.difficulty);
+            showToast(`Exported ${patched.fileName}`);
         } catch (error) {
             console.error("Failed to download patched chart: ", error);
             reportResourceError(
@@ -442,65 +455,117 @@ const App: React.FC = () => {
 
     const handleBlacklistConfirm = () => {
         if (!blacklistWarning) return;
-        
+
         if (blacklistWarning.exportType === 'chart') {
             executeChartExport();
         }
         setBlacklistWarning(null);
     };
-    
+
     const handleBlacklistCancel = () => {
         setBlacklistWarning(null);
     };
 
-    const isExporting = exportState.type !== null;
+    const handleFileDownloaded = useCallback((fileName: string) => showToast(`Saved ${fileName}`), [showToast]);
+
+    const bulkInputClass = 'w-full h-10 rounded-[10px] bg-white/[.04] border border-white/[.08] px-3 font-mono text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-[rgba(34,211,238,.45)] disabled:opacity-50';
+
+    const renderBulkPanel = () => (
+        <div className="h-full overflow-y-auto thin-scroll flex items-center justify-center p-5 sm:p-10">
+            <div className="w-full max-w-lg flex flex-col gap-5">
+                <div className="flex flex-col gap-1">
+                    <span className="flex items-center gap-2 font-mono text-[11px] font-medium tracking-[.12em] text-[#fbbf24]">
+                        BULK DOWNLOAD MODE
+                        <span className="text-[9px] font-semibold tracking-[.1em] px-1.5 py-0.5 rounded bg-[rgba(251,191,36,.1)]">WIP</span>
+                    </span>
+                    <h2 className="text-[32px] font-bold leading-[1.15] text-white">Export every song</h2>
+                    <p className="text-sm text-slate-400">To return to the normal page, turn off “Bulk download mode” in Settings → Advanced.</p>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-medium tracking-[.14em] text-slate-500">DELAY (SECONDS)</span>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={bulkDelay}
+                            onChange={(e) => setBulkDelay(e.target.value)}
+                            disabled={bulkExportState.isExporting}
+                            className={bulkInputClass}
+                            placeholder="0"
+                        />
+                        <span className="text-xs text-slate-500">Pause between songs to avoid rate limits. GitHub allows roughly 5000 requests/hour.</span>
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-medium tracking-[.14em] text-slate-500">SONGS (MAX {songs.length})</span>
+                        <input
+                            type="number"
+                            min="1"
+                            max={songs.length}
+                            value={bulkLimit}
+                            onChange={(e) => setBulkLimit(e.target.value)}
+                            disabled={bulkExportState.isExporting || songs.length === 0}
+                            className={bulkInputClass}
+                            placeholder={songs.length.toString()}
+                        />
+                        <span className="text-xs text-slate-500">Limit the number of songs to download for testing.</span>
+                    </label>
+                </div>
+
+                <div className="flex gap-2.5">
+                    <button
+                        type="button"
+                        onClick={handleBulkExport}
+                        disabled={bulkExportState.isExporting || songs.length === 0}
+                        className="relative overflow-hidden flex-1 h-[52px] rounded-[10px] bg-[#22d3ee] hover:bg-[#67e8f9] text-[#06141a] flex items-center justify-center gap-2.5 font-bold text-[15px] tracking-[.04em] transition-colors disabled:cursor-not-allowed disabled:bg-[#22d3ee]/40"
+                    >
+                        {bulkExportState.isExporting ? (
+                            <>
+                                <span className="[&_svg]:text-[#06141a]"><Spinner /></span>
+                                Processing…
+                            </>
+                        ) : (
+                            'Export all assets for every song'
+                        )}
+                        {bulkExportState.isExporting && bulkExportState.action === 'Zipping' && (
+                            <div
+                                className="absolute bottom-0 left-0 h-[3px] bg-[#06141a]/40 transition-[width] duration-150"
+                                style={{ width: `${bulkExportState.percent.toFixed(0)}%` }}
+                            />
+                        )}
+                    </button>
+                    {bulkExportState.isExporting && (
+                        <Button variant="danger" className="h-[52px] px-5 rounded-[10px]" onClick={cancelBulkExport}>Cancel</Button>
+                    )}
+                </div>
+
+                {bulkExportState.isExporting && (
+                    <div className="flex flex-col gap-2 p-4 rounded-xl border border-white/[.07] bg-white/[.02]">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-300">Action: <span className="text-[#22d3ee]">{bulkExportState.action}</span></span>
+                            <span className="font-mono text-xs text-slate-400">{bulkExportState.songsLeft} LEFT</span>
+                        </div>
+                        <div className="font-mono text-[11px] text-slate-500 truncate" title={bulkExportState.currentFile}>
+                            {bulkExportState.currentFile}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     return (
-        <div className="relative min-h-screen antialiased font-saira overflow-x-hidden text-slate-200">
-            {/* New UI Background Layer - Fixed Z-0 */}
-            <div 
-                className="fixed top-0 left-0 w-full h-[100lvh] z-0 pointer-events-none"
-                aria-hidden="true"
-            >
-                {/* Background Image */}
-                <div 
-                    className="absolute inset-0 transition-all duration-1000 ease-in-out"
-                    style={{
-                        backgroundImage: bgImage ? `url("${bgImage}")` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        filter: 'blur(30px) brightness(0.5)',
-                        opacity: isBgLoaded ? 1 : 0,
-                        transform: isBgLoaded ? 'scale(1.05)' : 'scale(1.15)',
-                    }}
-                />
-                {/* Fallback/Base gradient used when image is not loaded or for slight darkening */}
-                <div className={`absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-gray-900 -z-10`} />
-            </div>
-
-            {/* Visualizer Layer - Fixed Z-5 (Between bg and content) */}
-            {settings.useNewUi && settings.newUiShowVisualizer && activeAudio && !settings.bulkDownloadMode && (
-                <div className="animate-fade-in">
-                    <AudioVisualizer 
-                        audio={activeAudio} 
-                        color={settings.newUiVisualizerColor}
-                        height={settings.newUiVisualizerHeight}
-                        opacity={settings.newUiVisualizerOpacity}
-                    />
-                </div>
-            )}
-            
-            {/* Song Effects Styles & Overlay */}
-            {activeEffect && !settings.bulkDownloadMode && (
-                <div className="animate-fade-in">
-                    <SongEffectRenderer effect={activeEffect} audio={activeAudio} songName={selectedSong?.name} />
-                </div>
-            )}
-
+        <div className="relative h-dvh flex flex-col antialiased font-saira text-slate-200 bg-[#090b10] overflow-hidden">
             {isSettingsOpen && <SettingsPopup isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialCategory={settingsCategory} />}
             {isFaqOpen && <FAQPopup isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />}
             {isAboutOpen && <AboutPopup isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
             <ResourceErrorPopup onSwitchProxy={() => openSettings('proxy')} />
+            <InstructionPopup
+                isOpen={showInstruction}
+                onConfirm={handleInstructionConfirm}
+                onCancel={() => setShowInstruction(false)}
+            />
             {patchedChartPrompt && (
                 <PatchedChartPopup
                     isOpen={!!patchedChartPrompt}
@@ -508,262 +573,115 @@ const App: React.FC = () => {
                     onDownloadOriginal={handlePatchedOriginal}
                     onDownloadPatched={handlePatchedDownload}
                     reason={patchedChartPrompt.reason}
+                    songName={selectedSong?.name}
+                    difficulty={patchedChartPrompt.difficulty}
                 />
             )}
             {blacklistWarning && (
-                <BlacklistWarningPopup 
+                <BlacklistWarningPopup
                     isOpen={!!blacklistWarning}
                     onCancel={handleBlacklistCancel}
                     onConfirm={handleBlacklistConfirm}
                     reason={blacklistWarning.reason}
                 />
             )}
-            
-            {/* Content Layer - Relative Z-10 */}
-            <div className={`relative z-10 flex flex-col min-h-screen ${activeEffect === 'glitch' ? 'effect-glitch-active' : ''} ${activeEffect === 'cracking' ? 'effect-cracking-active' : ''}`}>
-                 {/* Standard background decorative shape, only visible if New UI bg isn't loaded */}
-                 <div 
-                     className={`absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80 transition-opacity duration-500 ${!isBgLoaded ? 'opacity-100' : 'opacity-0'}`} 
-                     aria-hidden="true"
-                 >
-                     <div 
-                         className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#80ff89] to-[#22d3ee] opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" 
-                         style={{
-                             clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)'
-                         }}
-                     ></div>
-                 </div>
 
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-                    <Header
-                        onSettingsClick={() => openSettings('export')}
-                        onFaqClick={() => setIsFaqOpen(true)}
-                        onAboutClick={() => setIsAboutOpen(true)}
-                    />
+            {isMobile ? (
+                <MobileLayout
+                    songs={sortedSongs}
+                    isLoadingSongs={isLoadingSongs}
+                    errorSongs={errorSongs}
+                    selectedSong={selectedSong}
+                    onSongSelect={handleSongSelect}
+                    sortConfig={sortConfig}
+                    onSortConfigChange={setSortConfig}
+                    version={version}
+                    isLoadingVersion={isLoadingVersion}
+                    versionError={errorVersion}
+                    onRetryVersion={loadVersion}
+                    onAboutClick={() => setIsAboutOpen(true)}
+                    onFaqClick={() => setIsFaqOpen(true)}
+                    onSettingsClick={() => openSettings('export')}
+                    bgImage={bgImage}
+                    isBgLoaded={isBgLoaded}
+                    audio={activeAudio}
+                    files={files}
+                    isLoadingFiles={isLoadingFiles}
+                    difficulties={availableDifficulties}
+                    selectedDifficulty={selectedDifficulty}
+                    onSelectDifficulty={setPreferredDifficulty}
+                    exportState={exportState}
+                    onExportChart={handleExportChart}
+                    onExportAllAssets={handleExportAllAssets}
+                    onDownloaded={handleFileDownloaded}
+                    bulkPanel={settings.bulkDownloadMode ? renderBulkPanel() : null}
+                    toast={toast}
+                />
+            ) : (
+            <div className="relative z-10 flex-1 min-h-0 flex flex-col">
+                <Header
+                    version={version}
+                    isLoadingVersion={isLoadingVersion}
+                    versionError={errorVersion}
+                    onRetryVersion={loadVersion}
+                    onSettingsClick={() => openSettings('export')}
+                    onFaqClick={() => setIsFaqOpen(true)}
+                    onAboutClick={() => setIsAboutOpen(true)}
+                />
 
-                    {!settings.bulkDownloadMode && (
-                        <div className="mt-8 flex flex-col items-center gap-6 animate-fade-in">
-                            <VersionCard isLoading={isLoadingVersion} error={errorVersion} version={version} />
-                        </div>
-                    )}
+                <main className="flex-1 min-h-0 grid grid-rows-[minmax(0,40%)_minmax(0,1fr)] md:grid-rows-1 md:grid-cols-[340px_minmax(0,1fr)]">
+                    <aside className="min-h-0 border-b md:border-b-0 md:border-r border-white/[.06]">
+                        <SongSelector
+                            isLoading={isLoadingSongs}
+                            error={errorSongs}
+                            songs={sortedSongs}
+                            selectedSong={selectedSong}
+                            onSongSelect={handleSongSelect}
+                            sortConfig={sortConfig}
+                            onSortConfigChange={setSortConfig}
+                        />
+                    </aside>
 
-                    <main className="mt-8">
-                        {settings.bulkDownloadMode ? (
-                            <div className="flex flex-col items-center justify-center p-8 bg-slate-800/50 rounded-xl border border-slate-700/50 text-center animate-fade-in w-full max-w-2xl mx-auto">
-                                <p className="text-lg font-semibold text-slate-200">Bulk Download Mode is Active</p>
-                                <p className="text-xs text-slate-400 mt-2 mb-6">To return to the normal page, disable 'Bulk Download Mode' in settings. This feature is WIP and unfinished!</p>
-                                
-                                <div className="flex flex-col items-center w-full max-w-md gap-4 mb-4">
-                                    <div className="flex flex-col items-start w-full">
-                                        <label htmlFor="bulkDelay" className="text-sm text-slate-300 mb-1">
-                                            Artificial Delay (seconds)
-                                        </label>
-                                        <div className="flex w-full items-center gap-2">
-                                            <input
-                                                id="bulkDelay"
-                                                type="number"
-                                                min="0"
-                                                step="0.5"
-                                                value={bulkDelay}
-                                                onChange={(e) => setBulkDelay(e.target.value)}
-                                                disabled={bulkExportState.isExporting}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-cyan disabled:opacity-50"
-                                                placeholder="0"
-                                            />
-                                            <span className="text-xs text-slate-500 whitespace-nowrap">
-                                                Pause between songs to avoid rate limits.<br/>GitHub has an unofficial rate limit of 5000req/hr.
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-start w-full">
-                                        <label htmlFor="bulkLimit" className="text-sm text-slate-300 mb-1">
-                                            Songs to Download (Max: {songs.length})
-                                        </label>
-                                        <div className="flex w-full items-center gap-2">
-                                            <input
-                                                id="bulkLimit"
-                                                type="number"
-                                                min="1"
-                                                max={songs.length}
-                                                value={bulkLimit}
-                                                onChange={(e) => setBulkLimit(e.target.value)}
-                                                disabled={bulkExportState.isExporting || songs.length === 0}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-cyan disabled:opacity-50"
-                                                placeholder={songs.length.toString()}
-                                            />
-                                            <span className="text-xs text-slate-500 whitespace-nowrap">
-                                                Limit the number of songs to download for testing.
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex w-full max-w-md gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={handleBulkExport}
-                                        disabled={bulkExportState.isExporting || songs.length === 0}
-                                        className={`relative overflow-hidden px-6 py-3 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 flex-grow ${
-                                            bulkExportState.isExporting || songs.length === 0
-                                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                                : 'bg-brand-cyan hover:bg-cyan-400 text-slate-900'
-                                        }`}
-                                    >
-                                        {bulkExportState.isExporting ? (
-                                            <>
-                                                <Spinner />
-                                                <span>Processing...</span>
-                                            </>
-                                        ) : (
-                                            'Export All Assets for Every Song'
-                                        )}
-                                        {bulkExportState.isExporting && bulkExportState.action === 'Zipping' && (
-                                            <div 
-                                                className="absolute bottom-0 left-0 h-1 bg-brand-purple transition-all duration-150"
-                                                style={{ width: `${bulkExportState.percent.toFixed(0)}%` }}
-                                            />
-                                        )}
-                                    </button>
-                                    
-                                    {bulkExportState.isExporting && (
-                                        <button
-                                            type="button"
-                                            onClick={cancelBulkExport}
-                                            className="px-4 py-3 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white"
-                                            title="Cancel Export"
-                                        >
-                                            Cancel
-                                        </button>
-                                    )}
-                                </div>
-
-                                {bulkExportState.isExporting && (
-                                    <div className="mt-6 w-full max-w-md text-left bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                                        <div className="flex justify-between text-sm mb-2">
-                                            <span className="text-slate-300 font-medium">Action: <span className="text-brand-cyan">{bulkExportState.action}</span></span>
-                                            <span className="text-slate-400">Songs Left: {bulkExportState.songsLeft}</span>
-                                        </div>
-                                        <div className="text-xs text-slate-500 truncate" title={bulkExportState.currentFile}>
-                                            File: {bulkExportState.currentFile}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-8 animate-fade-in">
-                               
-                               <SongSelector 
-                                isLoading={isLoadingSongs}
-                                error={errorSongs}
-                                songs={sortedSongs}
-                                selectedSong={selectedSong}
-                                onSongSelect={handleSongSelect}
-                                sortConfig={sortConfig}
-                                onSortConfigChange={setSortConfig}
-                           />
-
-                            {/* Audio Player - Now below SongSelector, hidden if New UI or Audio Preview is off */}
-                            {settings.useNewUi && settings.newUiAudioPreview && (
-                                <div className="flex flex-col items-center justify-center z-20 w-full max-w-lg">
-                                    {activeAudio ? (
-                                        <AudioPlayerControl 
-                                            audio={activeAudio} 
-                                            songName={selectedSong?.name}
-                                            artist={selectedSong?.composer}
-                                        />
-                                    ) : (
-                                        <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-500 text-sm italic backdrop-blur-sm">
-                                            Select a song to play its audio.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                           <div className="relative z-30 mt-4 w-full max-w-4xl">
-                                {selectedSong && availableDifficulties.length > 0 && (
-                                    <div className="relative mb-6">
-                                        {showDifficultyWarning && (
-                                            <div
-                                                role="alert"
-                                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max whitespace-nowrap px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-md shadow-lg z-10"
-                                            >
-                                                Please select a difficulty first!
-                                            </div>
-                                        )}
-                                        <div className="flex justify-center items-center flex-wrap gap-4">
-                                            <DifficultySelector
-                                                difficulties={availableDifficulties}
-                                                selectedDifficulty={selectedDifficulty}
-                                                onSelectDifficulty={setSelectedDifficulty}
-                                                selectedSong={selectedSong}
-                                                highlight={showDifficultyWarning}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleExportChart}
-                                                disabled={isExporting}
-                                                className={`relative overflow-hidden px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 min-w-[190px] ${
-                                                    !selectedDifficulty || isExporting
-                                                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                                        : 'bg-purple-800 hover:bg-purple-900 text-white'
-                                                }`}
-                                            >
-                                                {exportState.type === 'chart' ? (
-                                                    <>
-                                                        <Spinner />
-                                                        <span>Exporting...</span>
-                                                    </>
-                                                ) : (
-                                                    'Export for Phira & RPE'
-                                                )}
-                                                {exportState.type === 'chart' && (
-                                                    <div
-                                                        className="absolute bottom-0 left-0 h-0.5 bg-brand-cyan/75 transition-all duration-150"
-                                                        style={{ width: `${exportState.progress.toFixed(0)}%` }}
-                                                    />
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                <FileTable
-                                    selectedSong={selectedSong}
-                                    onFilesFound={handleFilesFound}
-                                    onExportAllAssets={handleExportAllAssets}
-                                    isExporting={isExporting}
-                                    exportState={exportState}
-                                />
-                           </div>
-                        </div>
+                    <section className="relative min-h-0">
+                        {settings.bulkDownloadMode ? renderBulkPanel() : (
+                            <SongWorkspace
+                                song={selectedSong}
+                                bgImage={bgImage}
+                                isBgLoaded={isBgLoaded}
+                                audio={activeAudio}
+                                files={files}
+                                isLoadingFiles={isLoadingFiles}
+                                difficulties={availableDifficulties}
+                                selectedDifficulty={selectedDifficulty}
+                                onSelectDifficulty={setPreferredDifficulty}
+                                exportState={exportState}
+                                onExportChart={handleExportChart}
+                                onExportAllAssets={handleExportAllAssets}
+                                onDownloaded={handleFileDownloaded}
+                            />
                         )}
-                    </main>
-                </div>
-                
-                {!settings.bulkDownloadMode && (
-                    <footer 
-                        className={`w-full mt-16 transition-all duration-300 flex justify-center animate-fade-in ${
-                            settings.useNewUi 
-                                ? 'pb-10' 
-                                : 'py-8 text-slate-500 border-t border-transparent'
-                        }`}
-                    >
-                        <div className={`
-                            text-center text-sm transition-all duration-300
-                            ${settings.useNewUi 
-                                ? 'bg-slate-950/50 backdrop-blur-md border border-white/10 rounded-3xl text-slate-200 shadow-2xl px-8 py-4 mx-4' 
-                                : 'container mx-auto px-4 sm:px-6 lg:px-8'
-                            }
-                        `}>
-                            <p>
-                                Source code is available <a href="https://github.com/swordalt/phigros-chart-downloader/" className={`transition-colors duration-200 ${settings.useNewUi ? 'text-brand-cyan hover:text-cyan-300' : 'hover:text-slate-400 underline decoration-slate-600'}`}>on GitHub</a>. Consider starring the repository if you can.
-                            </p>
-                            <p className="mt-2">
-                                Project created by 'sword'. | All assets belong to their respective copyright holders.
-                            </p>
-                        </div>
-                    </footer>
-                )}
+
+                        {toast && (
+                            <div
+                                key={toast.id}
+                                role="status"
+                                className="motion-toast absolute left-1/2 bottom-5 z-30 flex items-center gap-2.5 max-w-[calc(100%-32px)] pl-3 pr-4 py-2.5 rounded-[10px] bg-[rgba(12,15,22,.95)] border border-[rgba(34,211,238,.3)] shadow-[0_20px_50px_rgba(0,0,0,.5)] text-[13px] text-slate-200"
+                            >
+                                <span className="w-5 h-5 flex-none rounded-full bg-[#22d3ee] flex items-center justify-center">
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="#06141a"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                </span>
+                                <span className="truncate">{toast.text}</span>
+                            </div>
+                        )}
+                    </section>
+                </main>
+
+                <footer className="flex-none min-h-10 flex flex-wrap items-center justify-center text-center gap-x-6 gap-y-0.5 px-4 sm:px-6 py-2 border-t border-white/[.1] bg-[#10141d] text-xs text-slate-500">
+                    <span>Source code can be found on <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-[#22d3ee] hover:text-[#67e8f9]">GitHub</a>, considering starring the repo.</span>
+                    <span className="hidden sm:inline">All assets belong to their respective copyright holders.</span>
+                </footer>
             </div>
+            )}
         </div>
     );
 };

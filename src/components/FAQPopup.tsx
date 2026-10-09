@@ -1,113 +1,67 @@
-
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { faqData } from '../faqData';
-import { useSettings } from '../contexts/SettingsContext';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { DialogFrame, DialogFooter, DialogHeader, Button } from './ui/Dialog';
+import { ChevronDownIcon } from './Icons';
 
 interface FAQPopupProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-interface AccordionItemProps {
-    question: string;
-    children: string;
-    isLast: boolean;
-}
-
-const AccordionItem: React.FC<AccordionItemProps> = ({ question, children, isLast }) => (
-    <details className={`group border-b border-slate-700/50 py-4 ${isLast ? 'border-none' : ''}`}>
-        <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-slate-200 hover:text-white">
-            {question}
-            <div className="text-slate-400 group-hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 transition-transform duration-300 group-open:rotate-180">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-            </div>
-        </summary>
-        <div className="mt-4 text-slate-400" dangerouslySetInnerHTML={{ __html: children }} />
-    </details>
-);
+const REPO_ISSUES_URL = 'https://github.com/swordalt/phigros-chart-downloader/issues';
 
 export const FAQPopup: React.FC<FAQPopupProps> = ({ isOpen, onClose }) => {
-    const { settings } = useSettings();
-    const parentRef = useRef<HTMLDivElement>(null);
-
-    const rowVirtualizer = useVirtualizer({
-        count: faqData.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 100,
-    });
+    // One question open at a time; the first starts open.
+    const [openIndex, setOpenIndex] = useState<number>(0);
 
     if (!isOpen) return null;
 
     return (
-        <div 
-            className="motion-backdrop fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            aria-labelledby="faq-title"
-            role="dialog"
-            aria-modal="true"
-            onClick={onClose}
-        >
-            <div 
-                className={`motion-dialog relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border border-slate-700 shadow-2xl transform transition-all ${
-                    settings.useNewUi ? 'bg-slate-900/80 backdrop-blur-md' : 'bg-slate-900'
-                }`}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="p-6">
-                    <h2 id="faq-title" className="text-2xl font-bold text-brand-cyan mb-4">
-                        Frequently Asked Questions
-                    </h2>
-                </div>
+        <DialogFrame onClose={onClose} labelledBy="faq-title" className="w-full max-w-[680px] max-h-[calc(100dvh-32px)]">
+            <DialogHeader id="faq-title" eyebrow="Help" title="Frequently asked questions" onClose={onClose} />
 
-                <div 
-                    ref={parentRef} 
-                    className="max-h-[60vh] overflow-y-auto px-6 custom-scrollbar scroll-fade"
-                >
-                    <div
-                        style={{
-                            height: `${rowVirtualizer.getTotalSize()}px`,
-                            width: '100%',
-                            position: 'relative',
-                        }}
-                    >
-                        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                            const item = faqData[virtualItem.index];
-                            return (
-                                <div
-                                    key={virtualItem.key}
-                                    ref={rowVirtualizer.measureElement}
-                                    data-index={virtualItem.index}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualItem.start}px)`,
-                                    }}
-                                >
-                                    <AccordionItem 
-                                        question={item.question} 
-                                        isLast={virtualItem.index === faqData.length - 1}
-                                    >
-                                        {item.answer}
-                                    </AccordionItem>
+            <div className="flex-1 min-h-0 overflow-y-auto thin-scroll px-6 max-md:px-5 pt-2 pb-3 flex flex-col">
+                {faqData.map((item, i) => {
+                    const isOpenItem = openIndex === i;
+                    return (
+                        <div key={item.question} className={i ? 'border-t border-white/[.06]' : ''}>
+                            <button
+                                type="button"
+                                onClick={() => setOpenIndex(isOpenItem ? -1 : i)}
+                                aria-expanded={isOpenItem}
+                                className="w-full text-left grid grid-cols-[32px_minmax(0,1fr)_16px] items-center gap-2 py-[15px]"
+                            >
+                                <span className={`font-mono text-[11px] font-medium ${isOpenItem ? 'text-[#22d3ee]' : 'text-slate-600'}`}>
+                                    {String(i + 1).padStart(2, '0')}
+                                </span>
+                                <span className={`text-[15px] font-medium ${isOpenItem ? 'text-slate-100' : 'text-slate-300 hover:text-slate-100'}`}>
+                                    {item.question}
+                                </span>
+                                <ChevronDownIcon className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpenItem ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isOpenItem && (
+                                <div className="pl-10 pr-6 max-md:pr-2 pb-4 text-sm leading-[1.65] text-slate-400 text-pretty">
+                                    {item.answer}
+                                    {item.link && (
+                                        <>
+                                            {' '}
+                                            <a href={item.link.url} target="_blank" rel="noreferrer" className="text-[#22d3ee] hover:text-[#67e8f9]">{item.link.text}</a>.
+                                        </>
+                                    )}
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="p-6 text-right bg-slate-900/50 border-t border-slate-800">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-slate-600 hover:bg-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-slate-500"
-                    >
-                        Close
-                    </button>
-                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
-        </div>
+
+            <DialogFooter>
+                <span className="text-[13px] text-slate-500">
+                    Still stuck? Open an issue on{' '}
+                    <a href={REPO_ISSUES_URL} target="_blank" rel="noreferrer" className="text-[#22d3ee] hover:text-[#67e8f9]">GitHub</a>
+                </span>
+                <Button variant="outline" size="md" onClick={onClose}>Close</Button>
+            </DialogFooter>
+        </DialogFrame>
     );
 };

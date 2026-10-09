@@ -1,8 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import { defaultSettings } from '../defaultSettings';
-import { PROXY_SOURCES, ProxySource } from '../utils/resourceUrls';
+import { defaultSettings, Settings } from '../defaultSettings';
+import { PROXY_SOURCES } from '../utils/resourceUrls';
+import { DialogFrame, DialogHeader, Button } from './ui/Dialog';
 
 export type SettingsCategory = 'export' | 'visual' | 'proxy' | 'advanced';
 
@@ -12,38 +12,158 @@ interface SettingsPopupProps {
     initialCategory?: SettingsCategory;
 }
 
-interface ToggleSwitchProps {
-    enabled: boolean;
-    onChange: (enabled: boolean) => void;
-    disabled?: boolean;
-}
-
 const CATEGORIES: { id: SettingsCategory; label: string }[] = [
     { id: 'export', label: 'Export' },
     { id: 'visual', label: 'App UI' },
-    { id: 'proxy', label: 'Proxy' },
+    { id: 'proxy', label: 'Network' },
     { id: 'advanced', label: 'Advanced' },
 ];
 
-const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ enabled, onChange, disabled }) => (
+const PROXY_TAGS: Record<string, string> = {
+    github: 'DEFAULT',
+    jsdelivr: 'CDN',
+    'jsdelivr-gcore': 'CDN',
+    'ghproxy-net': 'OTHER',
+    'ghfast-top': 'OTHER',
+};
+
+// --- Controls ---
+
+const Toggle: React.FC<{ enabled: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }> = ({ enabled, onChange, disabled, label }) => (
     <button
         type="button"
-        disabled={disabled}
-        className={`${
-            enabled ? 'bg-brand-cyan' : 'bg-slate-600'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-lg hover:shadow-brand-cyan/10'} motion-switch relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-cyan focus:ring-offset-2 focus:ring-offset-slate-900`}
         role="switch"
         aria-checked={enabled}
-        onClick={() => !disabled && onChange(!enabled)}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!enabled)}
+        className="relative w-[42px] h-6 rounded-full transition-colors duration-200 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
+        style={{ background: enabled ? '#22d3ee' : 'rgba(255,255,255,0.12)' }}
     >
         <span
-            aria-hidden="true"
-            className={`${
-                enabled ? 'translate-x-5' : 'translate-x-0'
-            } ${disabled ? 'motion-switch-thumb-disabled' : ''} motion-switch-thumb pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white ring-0`}
+            className="absolute top-[3px] left-[3px] w-[18px] h-[18px] rounded-full transition-transform duration-200"
+            style={{ background: enabled ? '#06141a' : '#cbd5e1', transform: `translateX(${enabled ? 18 : 0}px)` }}
         />
     </button>
 );
+
+function Segmented<T extends string | boolean>({ value, options, onChange, disabled }: {
+    value: T;
+    options: [T, string][];
+    onChange: (v: T) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <div className="flex p-[3px] gap-0.5 rounded-[9px] bg-white/[.04] border border-white/[.08]" role="radiogroup">
+            {options.map(([v, label]) => {
+                const selected = v === value;
+                return (
+                    <button
+                        key={String(v)}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        disabled={disabled}
+                        onClick={() => onChange(v)}
+                        className={`px-3.5 py-[5px] max-md:py-[7px] rounded-md text-[13px] font-semibold transition-colors disabled:cursor-not-allowed ${
+                            selected ? 'bg-[rgba(34,211,238,0.14)] text-[#22d3ee]' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                    >
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+const Slider: React.FC<{
+    value: number; min: number; max: number; step: number;
+    format: (v: number) => string;
+    onChange: (v: number) => void;
+    disabled?: boolean;
+    label: string;
+}> = ({ value, min, max, step, format, onChange, disabled, label }) => {
+    const trackRef = useRef<HTMLDivElement>(null);
+    const pct = ((value - min) / (max - min)) * 100;
+
+    const setFromPointer = (clientX: number) => {
+        const rect = trackRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const p = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const next = Math.round((min + p * (max - min)) / step) * step;
+        onChange(Number(next.toFixed(4)));
+    };
+
+    const handleKey = (e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') onChange(Math.min(max, Number((value + step).toFixed(4))));
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') onChange(Math.max(min, Number((value - step).toFixed(4))));
+        else return;
+        e.preventDefault();
+    };
+
+    return (
+        <>
+            <div
+                ref={trackRef}
+                role="slider"
+                tabIndex={disabled ? -1 : 0}
+                aria-label={label}
+                aria-valuemin={min}
+                aria-valuemax={max}
+                aria-valuenow={value}
+                aria-valuetext={format(value)}
+                aria-disabled={disabled}
+                onKeyDown={disabled ? undefined : handleKey}
+                onPointerDown={disabled ? undefined : (e) => {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    setFromPointer(e.clientX);
+                }}
+                onPointerMove={disabled ? undefined : (e) => {
+                    if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromPointer(e.clientX);
+                }}
+                className={`relative w-[120px] max-md:w-[160px] h-5 max-md:h-7 flex items-center touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 rounded ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+                <div className="w-full h-1 rounded-sm bg-white/[.12]" />
+                <div className="absolute left-0 h-1 rounded-sm bg-[#22d3ee]" style={{ width: `${pct}%` }} />
+                <div
+                    className="absolute w-3.5 h-3.5 -ml-[7px] rounded-full bg-slate-100 shadow-[0_0_0_3px_rgba(34,211,238,.25)]"
+                    style={{ left: `${pct}%` }}
+                />
+            </div>
+            <span className="w-10 text-right font-mono text-xs font-medium text-slate-400">{format(value)}</span>
+        </>
+    );
+};
+
+interface RowProps {
+    title: string;
+    description: string;
+    badge?: string;
+    sub?: boolean;
+    disabled?: boolean;
+    first?: boolean;
+    children: React.ReactNode;
+}
+
+const Row: React.FC<RowProps> = ({ title, description, badge, sub, disabled, first, children }) => (
+    <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-7 py-4 transition-opacity duration-200 ${first ? '' : 'border-t border-white/[.06]'} ${disabled ? 'opacity-40' : ''}`}
+    >
+        <div className={`flex-1 min-w-0 flex flex-col gap-0.5 ${sub ? 'ml-1 pl-4 border-l-2 border-white/[.08]' : ''}`}>
+            <span className="flex items-center gap-2 text-[15px] font-semibold text-slate-200">
+                {title}
+                {badge && (
+                    <span className="font-mono text-[9px] font-semibold tracking-[.1em] text-[#fbbf24] px-1.5 py-0.5 rounded bg-[rgba(251,191,36,.1)]">{badge}</span>
+                )}
+            </span>
+            <span className="text-[13px] leading-[1.5] text-slate-400 text-pretty">{description}</span>
+        </div>
+        <div className={`flex-none flex items-center gap-2.5 ${sub ? 'ml-[22px] sm:ml-0' : ''}`}>{children}</div>
+    </div>
+);
+
+// --- Popup ---
 
 export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose, initialCategory = 'export' }) => {
     const { settings, setSettings } = useSettings();
@@ -60,431 +180,181 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose, i
 
     if (!isOpen) return null;
 
-    const handleResetConfirm = () => {
-        setSettings(defaultSettings);
-        setConfirmReset(false);
+    const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
     };
 
-    const handleChangeExportFormat = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSettings(prev => ({ ...prev, useZipFormat: e.target.value === 'zip' }));
-    };
-
-    const handleChangeExportIllustrationType = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSettings(prev => ({ ...prev, exportIllustrationType: e.target.value as 'full' | 'blur' }));
-    };
-
-    const handleChangeChartFormatConversion = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSettings(prev => ({ ...prev, chartFormatConversion: e.target.value as 'none' | 'rpe' }));
-    };
-
-    const handleToggleEasingFitting = () => {
-        setSettings(prev => ({ ...prev, chartEasingFitting: !prev.chartEasingFitting }));
-    };
-
-    const handleToggleAnalytics = () => {
-        setSettings(prev => ({ ...prev, analyticsEnabled: !prev.analyticsEnabled }));
-    };
-
-    const handleToggleAudioPreview = () => {
-        setSettings(prev => ({ ...prev, newUiAudioPreview: !prev.newUiAudioPreview }));
-    };
-
-    const handleChangeAudioVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSettings(prev => ({ ...prev, newUiAudioVolume: Number(e.target.value) }));
-    };
-
-    const handleToggleLoopAudio = () => {
-        setSettings(prev => ({ ...prev, newUiLoopAudio: !prev.newUiLoopAudio }));
-    };
-
-    const handleToggleShowVisualizer = () => {
-        setSettings(prev => ({ ...prev, newUiShowVisualizer: !prev.newUiShowVisualizer }));
-    };
-
-    const handleChangeVisualizerColor = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSettings(prev => ({ ...prev, newUiVisualizerColor: e.target.value }));
-    };
-
-    const handleChangeVisualizerHeight = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSettings(prev => ({ ...prev, newUiVisualizerHeight: Number(e.target.value) }));
-    };
-
-    const handleChangeVisualizerOpacity = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSettings(prev => ({ ...prev, newUiVisualizerOpacity: Number(e.target.value) }));
-    };
-
-    const handleToggleSongEffects = () => {
-        setSettings(prev => ({ ...prev, newUiSongSpecificEffects: !prev.newUiSongSpecificEffects }));
-    };
-
-    const handleToggleAdvancedInfo = () => {
-        setSettings(prev => ({ ...prev, advancedInfo: !prev.advancedInfo }));
-    };
-
-    const handleToggleBulkDownloadMode = () => {
-        setSettings(prev => ({ ...prev, bulkDownloadMode: !prev.bulkDownloadMode }));
-    };
-
-    const handleSelectProxy = (id: ProxySource) => {
-        setSettings(prev => ({ ...prev, proxySource: id }));
-    };
+    const noConversion = settings.chartFormatConversion === 'none';
+    const noAudio = !settings.newUiAudioPreview;
 
     const renderExport = () => (
-        <div className="divide-y divide-slate-700/50 [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Chart File Extension</p>
-                    <p className="text-sm text-slate-400">The extension to use for exported charts. Certain browsers will override this.</p>
-                </div>
-                <select
-                    value={settings.useZipFormat ? 'zip' : 'pez'}
-                    onChange={handleChangeExportFormat}
-                    className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded px-3 py-2 focus:outline-none focus:border-brand-cyan cursor-pointer"
-                >
-                    <option value="pez">PEZ</option>
-                    <option value="zip">ZIP</option>
-                </select>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Chart Illustration</p>
-                    <p className="text-sm text-slate-400">The type of illustration to use for exported charts.</p>
-                </div>
-                <select
-                    value={settings.exportIllustrationType}
-                    onChange={handleChangeExportIllustrationType}
-                    className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded px-3 py-2 focus:outline-none focus:border-brand-cyan cursor-pointer"
-                >
-                    <option value="full">Full Size</option>
-                    <option value="blur">Blur</option>
-                </select>
-            </div>
-            <div>
-                <div className="flex items-center justify-between gap-4">
-                    <div>
-                        <p className="font-semibold text-slate-200">Chart Format Conversion</p>
-                        <p className="text-sm text-slate-400">Convert chart data in exported charts into other formats to support other editors.</p>
-                    </div>
-                    <select
-                        value={settings.chartFormatConversion}
-                        onChange={handleChangeChartFormatConversion}
-                        className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded px-3 py-2 focus:outline-none focus:border-brand-cyan cursor-pointer"
-                    >
-                        <option value="none">None</option>
-                        <option value="rpe">To RPE</option>
-                    </select>
-                </div>
-                <div className={`mt-3 ml-1 pl-4 border-l-2 border-slate-700 flex items-center justify-between gap-4 transition-opacity duration-200 ${settings.chartFormatConversion === 'none' ? 'opacity-50' : ''}`}>
-                    <div>
-                        <p className="text-sm font-semibold text-slate-300">Easing Fit</p>
-                        <p className="text-xs text-slate-400">Re-construct cut events into larger eased ones. Saves file size; recommended for editing within RPE.</p>
-                    </div>
-                    <ToggleSwitch
-                        enabled={settings.chartEasingFitting}
-                        onChange={handleToggleEasingFitting}
-                        disabled={settings.chartFormatConversion === 'none'}
-                    />
-                </div>
-            </div>
-        </div>
+        <>
+            <Row first title="Chart file extension" description="File extension used for exported charts. Some browsers may override this, causing something like pez.zip.">
+                <Segmented value={settings.useZipFormat} options={[[false, 'PEZ'], [true, 'ZIP']]} onChange={v => update('useZipFormat', v)} />
+            </Row>
+            <Row title="Chart illustration" description="The illustration type bundled into exported charts.">
+                <Segmented value={settings.exportIllustrationType} options={[['full', 'Full size'], ['blur', 'Blur']]} onChange={v => update('exportIllustrationType', v)} />
+            </Row>
+            <Row title="Chart format conversion" description="Convert chart data into other formats to support other editors. Only affects chart bundles, not individual files.">
+                <Segmented value={settings.chartFormatConversion} options={[['none', 'None'], ['rpe', 'To RPE']]} onChange={v => update('chartFormatConversion', v)} />
+            </Row>
+            <Row sub disabled={noConversion} title="Easing fit" description="Rebuild cut events into larger eased ones. Reduces file size; recommended for editing in RPE.">
+                <Toggle label="Easing fit" enabled={settings.chartEasingFitting} onChange={v => update('chartEasingFitting', v)} disabled={noConversion} />
+            </Row>
+        </>
     );
 
     const renderVisual = () => (
-        <div className="divide-y divide-slate-700/50 [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Audio (WIP)</p>
-                    <p className="text-sm text-slate-400">Automatically play the currently-selected song's audio.</p>
-                </div>
-                <ToggleSwitch
-                    enabled={settings.newUiAudioPreview}
-                    onChange={handleToggleAudioPreview}
-                />
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Audio Volume</p>
-                    <p className="text-sm text-slate-400">The volume of the audio player.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={settings.newUiAudioVolume}
-                        onChange={handleChangeAudioVolume}
-                        disabled={!settings.newUiAudioPreview}
-                        className="w-24 h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-brand-cyan hover:accent-cyan-300 focus:outline-none disabled:opacity-50"
-                    />
-                    <span className="text-sm font-mono text-slate-400 w-9 text-right">{Math.round(settings.newUiAudioVolume * 100)}%</span>
-                </div>
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Audio Looping</p>
-                    <p className="text-sm text-slate-400">Automatically loop back to the beginning.</p>
-                </div>
-                <ToggleSwitch
-                    enabled={settings.newUiLoopAudio}
-                    onChange={handleToggleLoopAudio}
-                    disabled={!settings.newUiAudioPreview}
-                />
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Audio Visualizer</p>
-                    <p className="text-sm text-slate-400">Show a bar visualizer of the audio.</p>
-                </div>
-                <ToggleSwitch
-                    enabled={settings.newUiShowVisualizer}
-                    onChange={handleToggleShowVisualizer}
-                    disabled={!settings.newUiAudioPreview}
-                />
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiShowVisualizer || !settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Visualizer Color</p>
-                    <p className="text-sm text-slate-400">Enter a color code, name, or hex. Alternatively, click to pick a color.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-lg border border-slate-600 shadow-inner overflow-hidden shrink-0 transition-colors focus-within:ring-2 focus-within:ring-brand-cyan focus-within:ring-offset-2 focus-within:ring-offset-slate-900">
-                        <div
-                            className="absolute inset-0 pointer-events-none"
-                            style={{ backgroundColor: settings.newUiVisualizerColor }}
-                        />
-                        <input
-                            type="color"
-                            value={
-                                /^#[0-9A-Fa-f]{6}$/.test(settings.newUiVisualizerColor)
-                                ? settings.newUiVisualizerColor
-                                : '#808080'
-                            }
-                            onChange={handleChangeVisualizerColor}
-                            disabled={!settings.newUiShowVisualizer || !settings.newUiAudioPreview}
-                            className="opacity-0 w-full h-full cursor-pointer disabled:cursor-not-allowed"
-                            aria-label="Choose visualizer color"
-                        />
-                    </div>
-                    <input
-                        type="text"
-                        value={settings.newUiVisualizerColor}
-                        onChange={handleChangeVisualizerColor}
-                        disabled={!settings.newUiShowVisualizer || !settings.newUiAudioPreview}
-                        className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded px-3 py-2 w-28 focus:outline-none focus:border-brand-cyan disabled:opacity-50 disabled:cursor-not-allowed font-mono text-center uppercase"
-                        placeholder="#RRGGBB"
-                    />
-                </div>
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiShowVisualizer || !settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Visualizer Height</p>
-                    <p className="text-sm text-slate-400">Changes the maximum height of the visualizer bars.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="5"
-                        value={settings.newUiVisualizerHeight}
-                        onChange={handleChangeVisualizerHeight}
-                        disabled={!settings.newUiShowVisualizer || !settings.newUiAudioPreview}
-                        className="w-24 h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-brand-cyan hover:accent-cyan-300 focus:outline-none disabled:opacity-50"
-                    />
-                    <span className="text-sm font-mono text-slate-400 w-8 text-right">{settings.newUiVisualizerHeight}%</span>
-                </div>
-            </div>
-
-            <div className={`flex items-center justify-between gap-4 transition-opacity duration-200 ${!settings.newUiShowVisualizer || !settings.newUiAudioPreview ? 'opacity-50' : ''}`}>
-                <div>
-                    <p className="font-semibold text-slate-200">Visualizer Opacity</p>
-                    <p className="text-sm text-slate-400">Adjusts the transparency of the visualizer bars.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="5"
-                        value={settings.newUiVisualizerOpacity}
-                        onChange={handleChangeVisualizerOpacity}
-                        disabled={!settings.newUiShowVisualizer || !settings.newUiAudioPreview}
-                        className="w-24 h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-brand-cyan hover:accent-cyan-300 focus:outline-none disabled:opacity-50"
-                    />
-                    <span className="text-sm font-mono text-slate-400 w-8 text-right">{settings.newUiVisualizerOpacity}%</span>
-                </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Song-Specific Effects (WIP)</p>
-                    <p className="text-sm text-slate-400">Shows unique 'anomaly' effects when ✨CERTAIN✨ songs are selected. May cause lag.<br/>(Some effects require 'Audio Preview' to work, as they are synced to the song.)</p>
-                </div>
-                <ToggleSwitch
-                    enabled={settings.newUiSongSpecificEffects}
-                    onChange={handleToggleSongEffects}
-                />
-            </div>
-        </div>
+        <>
+            <Row first badge="WIP" title="Audio preview" description="Automatically play the selected song's audio.">
+                <Toggle label="Audio preview" enabled={settings.newUiAudioPreview} onChange={v => update('newUiAudioPreview', v)} />
+            </Row>
+            <Row sub disabled={noAudio} title="Volume" description="Volume of the audio player.">
+                <Slider label="Volume" value={settings.newUiAudioVolume} min={0} max={1} step={0.05} format={v => `${Math.round(v * 100)}%`} onChange={v => update('newUiAudioVolume', v)} disabled={noAudio} />
+            </Row>
+            <Row sub disabled={noAudio} title="Loop" description="Loop back to the beginning when the song ends.">
+                <Toggle label="Loop" enabled={settings.newUiLoopAudio} onChange={v => update('newUiLoopAudio', v)} disabled={noAudio} />
+            </Row>
+            <Row title="Blur" description="Blur the content behind popups and glass panels. When off, a black fade is used instead.">
+                <Toggle label="Blur" enabled={settings.newUiBlur} onChange={v => update('newUiBlur', v)} />
+            </Row>
+        </>
     );
 
     const renderProxy = () => (
-        <div>
-            <p className="font-semibold text-slate-200">Proxy Source</p>
-            <p className="text-sm text-slate-400 mb-4">
-                Proxies may help with accessing GitHub in restricted regions or avoiding rate limits. Use GitHub official whenever possible.
-            </p>
-            <div className="space-y-3">
-                {PROXY_SOURCES.map((option) => {
-                    const isSelected = settings.proxySource === option.id;
+        <>
+            <div className="pt-4 flex flex-col gap-1">
+                <span className="text-[15px] font-semibold text-slate-200">Proxy source</span>
+                <span className="text-[13px] leading-[1.5] text-slate-400 text-pretty">
+                    Proxies may help with accessing GitHub in restricted regions or avoiding rate limits. Use GitHub official whenever possible.
+                </span>
+            </div>
+            <div className="mt-4 flex flex-col gap-2" role="radiogroup" aria-label="Proxy source">
+                {PROXY_SOURCES.map(option => {
+                    const selected = settings.proxySource === option.id;
                     return (
                         <button
                             key={option.id}
                             type="button"
-                            onClick={() => handleSelectProxy(option.id)}
-                            aria-pressed={isSelected}
-                            className={`w-full text-left rounded-lg border px-4 py-3 transition-colors duration-200 flex items-start gap-3 ${
-                                isSelected
-                                    ? 'border-brand-cyan bg-brand-cyan/10'
-                                    : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800'
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => update('proxySource', option.id)}
+                            className={`text-left flex items-center gap-3.5 px-3.5 py-3 rounded-[10px] border transition-colors ${
+                                selected
+                                    ? 'border-[rgba(34,211,238,0.5)] bg-[rgba(34,211,238,0.06)]'
+                                    : 'border-white/[.07] bg-white/[.015] hover:border-white/[.18]'
                             }`}
                         >
-                            <span
-                                aria-hidden="true"
-                                className={`mt-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${
-                                    isSelected ? 'border-brand-cyan' : 'border-slate-500'
-                                }`}
-                            >
-                                {isSelected && <span className="h-2 w-2 rounded-full bg-brand-cyan" />}
+                            <span className={`w-4 h-4 flex-none rounded-full border-[1.5px] flex items-center justify-center ${selected ? 'border-[#22d3ee]' : 'border-slate-600'}`}>
+                                <span className={`w-2 h-2 rounded-full ${selected ? 'bg-[#22d3ee]' : ''}`} />
                             </span>
-                            <span>
-                                <p className="font-semibold text-slate-200">{option.label}</p>
-                                <p className="text-sm text-slate-400">{option.description}</p>
+                            <span className="flex-1 min-w-0 flex flex-col">
+                                <span className="text-sm font-semibold text-slate-200">{option.label}</span>
+                                <span className="text-xs text-slate-400">{option.description}</span>
                             </span>
+                            <span className={`font-mono text-[10px] font-medium ${selected ? 'text-[#22d3ee]' : 'text-slate-600'}`}>{PROXY_TAGS[option.id]}</span>
                         </button>
                     );
                 })}
             </div>
-        </div>
+            <div className="mt-7 pt-5 border-t border-white/[.06] flex flex-col gap-1">
+                <span className="text-[15px] font-semibold text-slate-200">GitHub access token</span>
+                <span className="text-[13px] leading-[1.5] text-slate-400 text-pretty">
+                    Optional personal access token for higher GitHub rate limits. No scopes are needed. It is stored only in this browser and sent only to GitHub when the source is set to GitHub.
+                </span>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+                <input
+                    type="password"
+                    value={settings.githubToken}
+                    onChange={e => update('githubToken', e.target.value.trim())}
+                    placeholder="ghp_… or github_pat_…"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="GitHub personal access token"
+                    className="flex-1 min-w-0 h-[38px] max-md:h-11 px-3 rounded-lg bg-white/[.04] border border-white/[.08] font-mono text-xs max-md:text-base text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-[#22d3ee]/50"
+                />
+                <Button variant="outline" className="py-[7px] max-md:h-11" onClick={() => update('githubToken', '')} disabled={!settings.githubToken}>Clear</Button>
+            </div>
+        </>
     );
 
     const renderAdvanced = () => (
-        <div className="divide-y divide-slate-700/50 [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Advanced Info</p>
-                    <p className="text-sm text-slate-400">Enables tooltips containing advanced information (e.g., Song ID, illustration resolution).</p>
-                </div>
-                <ToggleSwitch enabled={settings.advancedInfo} onChange={handleToggleAdvancedInfo} />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Analytics</p>
-                    <p className="text-sm text-slate-400">Sends anonymous statistics about downloaded charts. Disable to only send an anonymized ID instead of the chart name and difficulty.<br />(Note: Uses a Discord webhook.)</p>
-                </div>
-                <ToggleSwitch enabled={settings.analyticsEnabled} onChange={handleToggleAnalytics} />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-semibold text-slate-200">Bulk Download Mode (WIP)</p>
-                    <p className="text-sm text-slate-400">Allows for the bulk export of assets and charts.</p>
-                </div>
-                <ToggleSwitch enabled={settings.bulkDownloadMode} onChange={handleToggleBulkDownloadMode} />
-            </div>
-        </div>
+        <>
+            <Row first title="Advanced info" description="Tooltips with advanced information such as charter names and file URLs.">
+                <Toggle label="Advanced info" enabled={settings.advancedInfo} onChange={v => update('advancedInfo', v)} />
+            </Row>
+            <Row title="Analytics" description="Sends anonymous stats about downloaded charts. When off, only an anonymized ID is sent. Uses a Discord webhook.">
+                <Toggle label="Analytics" enabled={settings.analyticsEnabled} onChange={v => update('analyticsEnabled', v)} />
+            </Row>
+            <Row badge="WIP" title="Bulk download mode" description="Allows bulk export of assets and charts.">
+                <Toggle label="Bulk download mode" enabled={settings.bulkDownloadMode} onChange={v => update('bulkDownloadMode', v)} />
+            </Row>
+        </>
     );
 
     return (
-        <div
-            className="motion-backdrop fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            aria-labelledby="settings-title"
-            role="dialog"
-            aria-modal="true"
-            onClick={onClose}
-        >
-            <div
-                className={`motion-dialog relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border border-slate-700 shadow-2xl p-6 text-left transform transition-all ${
-                    settings.useNewUi ? 'bg-slate-900/80 backdrop-blur-md' : 'bg-slate-900'
-                }`}
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-            >
-                <h2 id="settings-title" className="text-2xl font-bold text-brand-cyan mb-6">
-                    Settings
-                </h2>
+        <DialogFrame onClose={onClose} labelledBy="settings-title" className="w-full max-w-[820px] h-[min(600px,calc(100dvh-32px))]">
+            <DialogHeader id="settings-title" eyebrow="Preferences" title="Settings" onClose={onClose} />
 
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <nav
-                        className="flex sm:flex-col sm:w-40 flex-shrink-0 overflow-x-auto sm:overflow-visible divide-x sm:divide-x-0 sm:divide-y divide-slate-700 border-b sm:border-b-0 sm:border-r border-slate-700 pb-4 sm:pb-0 sm:pr-4"
-                        role="tablist"
-                        aria-label="Settings categories"
-                    >
-                        {CATEGORIES.map(({ id, label }) => (
+            <div className="flex-1 min-h-0 flex flex-col sm:grid sm:grid-cols-[184px_minmax(0,1fr)]">
+                <nav
+                    className="flex sm:flex-col gap-0.5 px-3 py-2 sm:py-4 border-b sm:border-b-0 sm:border-r border-white/[.06] overflow-x-auto"
+                    role="tablist"
+                    aria-label="Settings categories"
+                >
+                    {CATEGORIES.map(({ id, label }, i) => {
+                        const selected = category === id;
+                        return (
                             <button
                                 key={id}
                                 type="button"
                                 role="tab"
-                                aria-selected={category === id}
+                                aria-selected={selected}
                                 onClick={() => setCategory(id)}
-                                className={`px-4 py-3.5 text-left font-semibold transition-colors duration-200 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-cyan ${
-                                    category === id
-                                        ? 'bg-brand-cyan/10 text-brand-cyan'
-                                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                                className={`flex-none flex items-center justify-between gap-3 h-10 px-3 rounded-lg text-sm font-medium transition-colors ${
+                                    selected ? 'bg-[rgba(34,211,238,0.08)] text-[#22d3ee]' : 'text-slate-400 hover:text-slate-100'
                                 }`}
                             >
-                                {label}
+                                <span>{label}</span>
+                                <span className="font-mono text-[10px] font-medium text-slate-600">{String(i + 1).padStart(2, '0')}</span>
                             </button>
-                        ))}
-                    </nav>
+                        );
+                    })}
+                </nav>
 
-                    <div className="flex-1 min-w-0 h-[50vh] overflow-y-auto pr-2 custom-scrollbar scroll-fade" role="tabpanel">
-                        {category === 'export' && renderExport()}
-                        {category === 'visual' && renderVisual()}
-                        {category === 'proxy' && renderProxy()}
-                        {category === 'advanced' && renderAdvanced()}
-                    </div>
-                </div>
-
-                <div className="mt-8 flex justify-end gap-4 min-h-[44px]">
-                    {confirmReset ? (
-                        <div className="flex items-center gap-3 animate-pulse">
-                            <span className="text-slate-300 text-sm font-semibold mr-2">Are you sure?</span>
-                            <button
-                                onClick={handleResetConfirm}
-                                className="px-4 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-red-600 hover:bg-red-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                            >
-                                Yes
-                            </button>
-                            <button
-                                onClick={() => setConfirmReset(false)}
-                                className="px-4 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                            >
-                                No
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <button
-                                onClick={() => setConfirmReset(true)}
-                                className="px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-red-900/40 hover:bg-red-800/60 text-red-200 border border-red-800/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-red-700"
-                            >
-                                Reset Defaults
-                            </button>
-                            <button
-                                onClick={onClose}
-                                className="px-6 py-2 font-bold rounded-lg shadow-md transition-colors duration-200 bg-slate-600 hover:bg-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-slate-500"
-                            >
-                                Close
-                            </button>
-                        </>
-                    )}
+                <div className="flex-1 min-h-0 overflow-y-auto thin-scroll px-5 sm:px-7 pt-1 pb-5" role="tabpanel">
+                    {category === 'export' && renderExport()}
+                    {category === 'visual' && renderVisual()}
+                    {category === 'proxy' && renderProxy()}
+                    {category === 'advanced' && renderAdvanced()}
                 </div>
             </div>
-        </div>
+
+            <div className="flex-none min-h-[68px] flex flex-wrap items-center justify-between gap-3 px-6 py-3 max-md:px-5 max-md:pb-[calc(16px+env(safe-area-inset-bottom))] border-t border-white/[.06] bg-white/[.015]">
+                {confirmReset ? (
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-[13px] text-[#fca5a5]">Reset all settings?</span>
+                        <Button variant="danger" className="py-[7px]" onClick={() => { setSettings(defaultSettings); setConfirmReset(false); }}>Reset</Button>
+                        <Button variant="outline" className="py-[7px]" onClick={() => setConfirmReset(false)}>Cancel</Button>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setConfirmReset(true)}
+                        className="flex items-center gap-2 text-[13px] font-semibold text-[#f87171] px-3 py-2 -ml-3 rounded-lg hover:bg-[rgba(248,113,113,.08)] transition-colors"
+                    >
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Reset defaults
+                    </button>
+                )}
+                <div className="flex items-center gap-4">
+                    <span className="hidden sm:inline font-mono text-[10px] font-medium tracking-[.1em] text-slate-600">SAVED/APPLIED AUTOMATICALLY</span>
+                    <Button variant="primary" size="md" onClick={onClose}>Done</Button>
+                </div>
+            </div>
+        </DialogFrame>
     );
 };
