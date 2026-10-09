@@ -1,15 +1,15 @@
 # Phigros Chart Downloader
 
 Phigros Chart Downloader (PCD) simplifies the process of obtaining official Phigros chart files for use in Phira, PhiEdit, or any other external program.
-<img width="1920" height="1080" alt="Screenshot 2026-10-06 162156" src="https://github.com/user-attachments/assets/ecc6ac9d-cca4-48cf-b1d8-0beeb4aa8350" />
+<img width="1920" height="1080" alt="Screenshot 2026-10-08 212730" src="https://github.com/user-attachments/assets/176a13b4-7a67-4ce5-8ccc-a23b19f52d83" />
 
 ## <ins>Usage</ins>
 
 Access it via GitHub pages: https://swordalt.github.io/phigros-chart-downloader/
 
 How to obtain a chart file for Phira or RPE:
-1. Choose a song from the large dropdown. Search to quicken your query; aliases (or shorthands) are available for many songs.
-2. Select the desired difficulty to export from the smaller dropdown. Then click the **"Export for Phira & RPE"** button.
+1. Choose a song from the left. Type to quicken your search; searching by artist or song alias works.
+2. Select the desired difficulty to export. Then click the **"Export for Phira & RPE"** button.
 
 *Note: An `info.txt` and `info.yml` are both generated automatically. All files are renamed to comply with PhiEdit's structure.*
 
