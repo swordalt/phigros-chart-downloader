@@ -146,8 +146,8 @@ export const SongSelector: React.FC<SongSelectorProps> = ({ isLoading, error, so
     };
 
     return (
-        <div className="flex flex-col min-h-0 h-full bg-black">
-            <div className="flex-none bg-[#10141d] border-b border-white/[.1]">
+        <div className="flex flex-col min-h-0 h-full bg-[#0d1118]">
+            <div className="flex-none bg-[#090c11] border-b border-white/[.1]">
             <div className="p-4 flex flex-col gap-3">
                 <label className="h-[42px] flex items-center gap-2.5 px-3 rounded-[10px] bg-white/[.04] border border-white/[.08] focus-within:border-[rgba(34,211,238,.45)] transition-colors">
                     <MagnifyingGlassIcon className="w-4 h-4 text-slate-500 flex-none" />

@@ -3,15 +3,18 @@ import { Song } from '../types';
 import { getExtraChart, getExtraCharts } from '../extraCharts';
 import { DIFFICULTY_ORDER, getDifficultyColor } from '../utils/difficulty';
 import { useSettings } from '../contexts/SettingsContext';
+import { FileInfo } from '../types';
+import { estimateExportZipSize, formatEstimate } from '../utils/exportEstimate';
 
 interface DifficultySelectorProps {
     difficulties: string[];
     selectedDifficulty: string | null;
     onSelectDifficulty: (difficulty: string) => void;
     selectedSong: Song;
+    files: FileInfo[];
 }
 
-export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficulties, selectedDifficulty, onSelectDifficulty, selectedSong }) => {
+export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficulties, selectedDifficulty, onSelectDifficulty, selectedSong, files }) => {
     const { settings } = useSettings();
 
     if (difficulties.length === 0) {
@@ -34,6 +37,7 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
                     const level = selectedSong.difficulties?.[key] ?? extra?.level;
                     const charter = selectedSong.charters[key];
                     const tooltip = [extra?.tooltip, settings.advancedInfo && charter ? `Charter: ${charter}` : null].filter(Boolean).join('\n');
+                    const estimate = available ? estimateExportZipSize(files, diff, settings.exportIllustrationType) : null;
                     return (
                         <button
                             key={diff}
@@ -43,7 +47,7 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
                             disabled={!available}
                             onClick={() => onSelectDifficulty(diff)}
                             title={tooltip || undefined}
-                            className="px-4 py-3.5 rounded-[10px] border backdrop-blur-sm flex items-baseline justify-between transition-colors hover:bg-white/[.04] disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            className="px-4 py-3.5 rounded-[10px] border backdrop-blur-sm flex flex-wrap items-baseline justify-between transition-colors hover:bg-white/[.04] disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             style={{
                                 borderColor: selected ? '#ffffff' : 'rgba(255,255,255,0.08)',
                                 background: selected ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.015)',
@@ -51,6 +55,9 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficul
                         >
                             <span className="font-bold text-[15px] tracking-[.08em]" style={{ color }}>{diff}</span>
                             <span className={`text-[26px] font-semibold leading-none ${selected ? 'text-white' : 'text-slate-500'}`}>{available ? (level ?? '?') : 'N/A'}</span>
+                            {estimate !== null && (
+                                <span className="basis-full mt-1.5 font-mono text-[11px] text-slate-500 text-left" title="Estimated size of the exported .zip (chart + illustration + audio)">{formatEstimate(estimate)}</span>
+                            )}
                         </button>
                     );
                 })}

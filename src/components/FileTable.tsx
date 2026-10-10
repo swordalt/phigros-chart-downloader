@@ -8,8 +8,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useResourceError } from '../contexts/ResourceErrorContext';
 import { getResourceUrl } from '../utils/resourceUrls';
 import { resourceFetch } from '../utils/githubAuth';
-import { getDifficultyColor, floorLevel } from '../utils/difficulty';
-import { getExtraChart } from '../extraCharts';
+import { getDifficultyColor } from '../utils/difficulty';
 import { getChartDifficulty } from '../hooks/useSongFiles';
 
 interface FileTableProps {
@@ -102,20 +101,10 @@ export const FileTable: React.FC<FileTableProps> = ({ selectedSong, files, isLoa
         const chartDiff = getChartDifficulty(file);
         if (chartDiff) {
             const color = getDifficultyColor(chartDiff);
-            const level = selectedSong.difficulties?.[chartDiff as keyof NonNullable<Song['difficulties']>]
-                ?? getExtraChart(selectedSong.id, chartDiff)?.level;
             return (
-                mobile ? (
-                    <div className="w-14 h-[34px] rounded-[5px] border flex items-center justify-between px-[7px]" style={{ borderColor: `${color}55` }}>
-                        <span className="font-bold text-xs tracking-[.06em]" style={{ color }}>{chartDiff}</span>
-                        {level && <span className="text-xs text-slate-300">{floorLevel(level)}</span>}
-                    </div>
-                ) : (
-                    <div className="w-12 sm:w-16 h-[34px] rounded-[5px] border flex items-center justify-center sm:justify-between sm:px-2" style={{ borderColor: `${color}55` }}>
-                        <span className="font-bold text-[13px] tracking-[.08em]" style={{ color }}>{chartDiff}</span>
-                        {level && <span className="hidden sm:inline text-[13px] text-slate-300">{level}</span>}
-                    </div>
-                )
+                <div className={`${previewBox} h-[34px] rounded-[5px] border flex items-center justify-center`} style={{ borderColor: `${color}55` }}>
+                    <span className={`font-bold tracking-[.06em] ${mobile ? 'text-xs' : 'text-[13px]'}`} style={{ color }}>{chartDiff}</span>
+                </div>
             );
         }
         if (file.type === 'Audio') {

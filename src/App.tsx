@@ -676,7 +676,7 @@ const App: React.FC = () => {
                     </section>
                 </main>
 
-                <footer className="flex-none min-h-10 flex flex-wrap items-center justify-center text-center gap-x-6 gap-y-0.5 px-4 sm:px-6 py-2 border-t border-white/[.1] bg-[#10141d] text-xs text-slate-500">
+                <footer className="flex-none min-h-10 flex flex-wrap items-center justify-center text-center gap-x-6 gap-y-0.5 px-4 sm:px-6 py-2 border-t border-white/[.1] bg-[#05070a] text-xs text-slate-500">
                     <span>Source code can be found on <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-[#22d3ee] hover:text-[#67e8f9]">GitHub</a>, considering starring the repo.</span>
                     <span className="hidden sm:inline">All assets belong to their respective copyright holders.</span>
                 </footer>

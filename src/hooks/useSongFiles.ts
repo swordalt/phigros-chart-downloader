@@ -27,6 +27,13 @@ export const useSongFiles = (selectedSong: Song | null, proxySource: ProxySource
             return exists ? { ...file, size: size ?? undefined } : null;
         };
 
+        // For charts already known to exist: only fetch the size, and keep the file even if the request fails.
+        const withSize = async (file: FileInfo): Promise<FileInfo> => {
+            if (abortController.signal.aborted) return file;
+            const { size } = await probeUrl(file.url);
+            return { ...file, size: size ?? undefined };
+        };
+
         const filesToFind: Promise<FileInfo | null>[] = [];
 
         filesToFind.push(probe({ type: 'Illustration', name: `${songId}.png`, url: getResourceUrl(proxySource, 'illustration', `${songId}.png`) }));
@@ -52,14 +59,14 @@ export const useSongFiles = (selectedSong: Song | null, proxySource: ProxySource
                 // No metadata: find out which charts exist.
                 filesToFind.push(probe(file));
             } else if (selectedSong.difficulties[diff]) {
-                filesToFind.push(Promise.resolve(file));
+                filesToFind.push(withSize(file));
             }
         });
 
         // Charts that exist but are not listed in the metadata
         getExtraCharts(songId).forEach(extra => {
             const fileName = `${extra.difficulty}.json`;
-            filesToFind.push(Promise.resolve({
+            filesToFind.push(withSize({
                 type: `Chart (${extra.difficulty})`,
                 name: fileName,
                 url: getResourceUrl(proxySource, 'chart', `${songId}.0/${fileName}`),

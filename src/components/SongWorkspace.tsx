@@ -52,7 +52,6 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
     onDownloaded,
 }) => {
     const { settings } = useSettings();
-    const [filesOpen, setFilesOpen] = useState(false);
     const [scrollTop, setScrollTop] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -61,15 +60,12 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
         scrollRef.current?.scrollTo({ top: 0 });
     }, [song?.id]);
 
-    const toggleFiles = () => {
-        const open = !filesOpen;
-        setFilesOpen(open);
-        if (open) {
-            requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 300, behavior: 'smooth' }));
-        }
+    const scrollToFiles = () => {
+        const el = scrollRef.current;
+        el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     };
 
-    const isExporting = exportState.type !== null;
+    const isExporting =exportState.type !== null;
     const dim = Math.min(scrollTop / DIM_DISTANCE, 1) * MAX_DIM;
 
     return (
@@ -130,6 +126,7 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
                                     selectedDifficulty={selectedDifficulty}
                                     onSelectDifficulty={onSelectDifficulty}
                                     selectedSong={song}
+                                    files={files}
                                 />
                             ) : (
                                 <p className="text-sm text-slate-500">No charts were found for this song.</p>
@@ -168,24 +165,18 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
 
                             <button
                                 type="button"
-                                onClick={toggleFiles}
-                                aria-expanded={filesOpen}
-                                className="flex items-center justify-between h-12 border-t border-white/[.06] group"
+                                onClick={scrollToFiles}
+                                className="flex items-center justify-center gap-2 h-12 border-t border-white/[.06] text-[13px] text-slate-400 hover:text-slate-200 transition-colors"
                             >
-                                <span className={`flex items-center gap-2 text-[13px] transition-colors ${filesOpen ? 'text-slate-200' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                                    <ChevronDownIcon className={`w-3.5 h-3.5 [stroke-width:2] transition-transform duration-200 ${filesOpen ? '' : '-rotate-90'}`} />
-                                    Individual files
-                                    <span className="font-mono text-[11px] font-medium text-slate-500">· {isLoadingFiles ? '…' : files.length}</span>
-                                </span>
-                                <span className="font-mono text-[10px] font-medium tracking-[.12em] text-slate-600">{filesOpen ? 'SCROLL ↓' : 'SHOW'}</span>
+                                <ChevronDownIcon className="w-3.5 h-3.5 [stroke-width:2]" />
+                                Scroll down for individual files
+                                <ChevronDownIcon className="w-3.5 h-3.5 [stroke-width:2]" />
                             </button>
                         </div>
 
-                        {filesOpen && (
-                            <div className="px-5 sm:px-10 pt-1 pb-10">
-                                <FileTable selectedSong={song} files={files} isLoading={isLoadingFiles} onDownloaded={onDownloaded} />
-                            </div>
-                        )}
+                        <div className="px-5 sm:px-10 pt-1 pb-10">
+                            <FileTable selectedSong={song} files={files} isLoading={isLoadingFiles} onDownloaded={onDownloaded} />
+                        </div>
                     </>
                 )}
             </div>

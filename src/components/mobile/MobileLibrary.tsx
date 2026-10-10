@@ -120,8 +120,8 @@ export const MobileLibrary: React.FC<MobileLibraryProps> = ({
     };
 
     return (
-        <div className="absolute inset-0 flex flex-col bg-black">
-            <div className="flex-none bg-[#10141d] border-b border-white/[.1]">
+        <div className="absolute inset-0 flex flex-col bg-[#0d1118]">
+            <div className="flex-none bg-[#090c11] border-b border-white/[.1]">
                 <header className="h-[52px] flex items-center justify-between gap-3 pl-[18px] pr-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-4 h-4 flex-none bg-[#22d3ee] -skew-x-[14deg]" aria-hidden="true" />
@@ -182,7 +182,7 @@ export const MobileLibrary: React.FC<MobileLibraryProps> = ({
                         {renderList()}
                     </div>
 
-                    <div className="flex-none px-4 pt-2.5 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[#10141d] border-t border-white/[.1]">
+                    <div className="flex-none px-4 pt-2.5 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[#05070a] border-t border-white/[.1]">
                         <label className="h-12 flex items-center gap-2.5 px-3.5 rounded-[14px] bg-white/[.05] border border-white/[.08] focus-within:border-[rgba(34,211,238,.45)] transition-colors">
                             <MagnifyingGlassIcon className="w-[18px] h-[18px] flex-none text-slate-500" />
                             <input

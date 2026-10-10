@@ -37,7 +37,7 @@ const AssetsPill: React.FC<Pick<HeaderProps, 'version' | 'isLoadingVersion' | 'v
 export const Header: React.FC<HeaderProps> = memo(({ onSettingsClick, onFaqClick, onAboutClick, ...versionProps }) => {
     const navButton = 'px-3 py-1.5 text-[13px] text-slate-400 rounded-md hover:text-white hover:bg-white/[.05] transition-colors';
     return (
-        <header className="h-14 flex-none flex items-center justify-between gap-4 px-4 sm:px-6 border-b border-white/[.1] bg-[#10141d]">
+        <header className="h-14 flex-none flex items-center justify-between gap-4 px-4 sm:px-6 border-b border-white/[.1] bg-[#05070a]">
             <div className="flex items-center gap-3 min-w-0">
                 <span className="w-[18px] h-[18px] flex-none bg-[#22d3ee] -skew-x-[14deg]" aria-hidden="true" />
                 <h1 className="font-semibold text-sm tracking-[.18em] text-slate-100 truncate">
