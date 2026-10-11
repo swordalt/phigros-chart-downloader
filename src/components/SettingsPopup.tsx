@@ -209,6 +209,9 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose, i
             <Row first badge="WIP" title="Audio preview" description="Automatically play the selected song's audio.">
                 <Toggle label="Audio preview" enabled={settings.newUiAudioPreview} onChange={v => update('newUiAudioPreview', v)} />
             </Row>
+            <Row sub disabled={noAudio} title="Autoplay audio" description="Start playing automatically when a song is selected. When off, the player is shown paused until you press play.">
+                <Toggle label="Autoplay audio" enabled={settings.newUiAutoplayAudio} onChange={v => update('newUiAutoplayAudio', v)} disabled={noAudio} />
+            </Row>
             <Row sub disabled={noAudio} title="Volume" description="Volume of the audio player.">
                 <Slider label="Volume" value={settings.newUiAudioVolume} min={0} max={1} step={0.05} format={v => `${Math.round(v * 100)}%`} onChange={v => update('newUiAudioVolume', v)} disabled={noAudio} />
             </Row>

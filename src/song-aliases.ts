@@ -682,7 +682,7 @@ export const songNameAliases: Record<string, string[]> = {
     ""
   ],
   "Winter ↑cube↓": [
-    ""
+    "winter cube"
   ],
   "With You": [
     ""
@@ -805,7 +805,7 @@ export const songNameAliases: Record<string, string[]> = {
     "phitv","phi tv"
   ],
   "白と黒のバケモノ": [
-    ""
+    "black and white monster"
   ],
   "盏茗": [
     "tea"
@@ -826,7 +826,7 @@ export const songNameAliases: Record<string, string[]> = {
     "firefly"
   ],
   "蝎虎天体 -Lacertid-": [
-    ""
+    "furry"
   ],
   "贝多芬祝福 (Beethoven Blessing)": [
     ""
@@ -892,13 +892,13 @@ export const songNameAliases: Record<string, string[]> = {
     ""
   ],
   "What do you want more than a Happy ending?": [
-    ""
+    "wdywmtahe"
   ],
   "Xep+ion": [
     "xeption"
   ],
   "Archidoxen": [
-    ""
+    "doxx"
   ],
   "百鬼֎夜行": [
     ""
@@ -934,13 +934,13 @@ export const songNameAliases: Record<string, string[]> = {
     ""
   ],
   "ABYSS MOTION 192.333": [
-    ""
+    "192333"
   ],
   "Xenophobia": [
     ""
   ],
   "Verrückt": [
-    ""
+    "verrukt"
   ],
   "After ZABANIYA (MUG Edit)": [
     ""
@@ -976,7 +976,7 @@ export const songNameAliases: Record<string, string[]> = {
     ""
   ],
   "[NWAD]": [
-    ""
+    "[dawn]"
   ],
   "Devastating History": [
     ""

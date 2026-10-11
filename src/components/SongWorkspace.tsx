@@ -137,7 +137,7 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
                                     type="button"
                                     onClick={onExportChart}
                                     disabled={isExporting || !selectedDifficulty}
-                                    className="relative overflow-hidden flex-1 h-[52px] rounded-[10px] bg-[#22d3ee] hover:bg-[#67e8f9] text-[#06141a] flex items-center justify-center gap-2.5 font-bold text-[15px] tracking-[.04em] transition-colors disabled:cursor-not-allowed disabled:bg-[#22d3ee]/40 disabled:hover:bg-[#22d3ee]/40"
+                                    className="export-glow relative overflow-hidden flex-1 h-[52px] rounded-[10px] bg-[#22d3ee] hover:bg-[#67e8f9] text-[#06141a] flex items-center justify-center gap-2.5 font-bold text-[15px] tracking-[.04em] transition-colors disabled:cursor-not-allowed disabled:bg-[#22d3ee]/40 disabled:hover:bg-[#22d3ee]/40"
                                 >
                                     {exportState.type === 'chart' ? (
                                         <>

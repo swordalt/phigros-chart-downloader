@@ -8,6 +8,16 @@ export const projectDescription = "Phigros Chart Downloader simplifies the proce
 
 export const updateLogs: UpdateLog[] = [
 	{
+        date: "v2.0.2",
+        content: `
+            <ul class="list-disc list-inside space-y-1">
+				<li>Added glow to the chart export button.</li>
+                <li>Added option for autoplaying the audio, if enabled.</li>
+				<li>Updated song aliases.</li>
+            </ul>
+        `
+    },
+	{
         date: "v2.0.1",
         content: `
             <ul class="list-disc list-inside space-y-1">

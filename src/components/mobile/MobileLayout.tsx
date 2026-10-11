@@ -109,7 +109,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             // Same song again: its audio element is reused, so restart the preview by hand.
             if (audio && settings.newUiAudioPreview) {
                 audio.currentTime = 0;
-                audio.play().catch(err => console.warn('Could not play audio:', err));
+                if (settings.newUiAutoplayAudio) audio.play().catch(err => console.warn('Could not play audio:', err));
             }
         } else {
             onSongSelect(song);

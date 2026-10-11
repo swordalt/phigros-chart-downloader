@@ -240,11 +240,14 @@ const App: React.FC = () => {
             return audio;
         });
 
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.warn("Autoplay blocked or audio failed to load:", error);
-            });
+        audio.preload = "auto";
+        if (settings.newUiAutoplayAudio) {
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.warn("Autoplay blocked or audio failed to load:", error);
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSong, settings.newUiAudioPreview, settings.bulkDownloadMode, settings.proxySource]);

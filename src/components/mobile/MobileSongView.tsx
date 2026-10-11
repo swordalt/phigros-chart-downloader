@@ -243,7 +243,7 @@ export const MobileSongView: React.FC<MobileSongViewProps> = ({
                     type="button"
                     onClick={onExportChart}
                     disabled={isExporting || !selectedDifficulty}
-                    className="relative overflow-hidden flex-1 min-w-0 h-[54px] rounded-xl bg-[#22d3ee] text-[#06141a] flex items-center justify-center gap-[9px] font-bold text-[15px] tracking-[.03em] whitespace-nowrap disabled:cursor-not-allowed disabled:bg-[#22d3ee]/40"
+                    className="export-glow relative overflow-hidden flex-1 min-w-0 h-[54px] rounded-xl bg-[#22d3ee] text-[#06141a] flex items-center justify-center gap-[9px] font-bold text-[15px] tracking-[.03em] whitespace-nowrap disabled:cursor-not-allowed disabled:bg-[#22d3ee]/40"
                 >
                     {exportState.type === 'chart' ? (
                         <>

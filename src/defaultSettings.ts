@@ -13,6 +13,7 @@ export interface Settings {
     newUiAudioPreview: boolean;
     newUiAudioVolume: number;
     newUiLoopAudio: boolean;
+    newUiAutoplayAudio: boolean;
     newUiBlur: boolean;
     bulkDownloadMode: boolean;
     advancedInfo: boolean;
@@ -22,7 +23,7 @@ export const defaultSettings: Settings = {
     useZipFormat: false,
     analyticsEnabled: true,
     exportIllustrationType: 'full',
-    chartFormatConversion: 'rpe',
+    chartFormatConversion: 'none',
     chartEasingFitting: true,
     useNewUi: true,
     proxySource: 'github',
@@ -30,6 +31,7 @@ export const defaultSettings: Settings = {
     newUiAudioPreview: true,
     newUiAudioVolume: 1,
     newUiLoopAudio: true,
+    newUiAutoplayAudio: false,
     newUiBlur: false,
     bulkDownloadMode: false,
     advancedInfo: false,
