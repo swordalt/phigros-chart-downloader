@@ -31,6 +31,8 @@ interface SongWorkspaceProps {
 // How far (px) the file list has to scroll before the illustration is fully dimmed.
 const DIM_DISTANCE = 320;
 const MAX_DIM = 0.82;
+// Max distance (px) the illustration drifts from centre while following the pointer. Must stay below the -inset-6 bleed.
+const PARALLAX_SHIFT = 14;
 
 const ProgressBar: React.FC<{ progress: number; className: string }> = ({ progress, className }) => (
     <div className={`absolute bottom-0 left-0 h-[3px] transition-[width] duration-150 ${className}`} style={{ width: `${progress.toFixed(0)}%` }} />
@@ -54,11 +56,48 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
     const { settings } = useSettings();
     const [scrollTop, setScrollTop] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const parallaxRef = useRef<HTMLDivElement>(null);
+    const parallaxEnabled = settings.newUiBackgroundParallax;
 
     // Jump back to the workspace when switching songs.
     useEffect(() => {
         scrollRef.current?.scrollTo({ top: 0 });
     }, [song?.id]);
+
+    // Illustration drifts slightly toward the pointer. Mouse/trackpad only; skipped for reduced motion.
+    useEffect(() => {
+        const el = parallaxRef.current;
+        if (!el) return;
+        el.style.transform = '';
+        if (!parallaxEnabled) return;
+        const mql = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+        if (!mql.matches) return;
+
+        let targetX = 0, targetY = 0, x = 0, y = 0, frame = 0;
+        const tick = () => {
+            x += (targetX - x) * 0.08;
+            y += (targetY - y) * 0.08;
+            el.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+            frame = Math.abs(targetX - x) > 0.05 || Math.abs(targetY - y) > 0.05 ? requestAnimationFrame(tick) : 0;
+        };
+        const handleMove = (e: PointerEvent) => {
+            if (e.pointerType !== 'mouse') return;
+            targetX = (e.clientX / window.innerWidth - 0.5) * -2 * PARALLAX_SHIFT;
+            targetY = (e.clientY / window.innerHeight - 0.5) * -2 * PARALLAX_SHIFT;
+            if (!frame) frame = requestAnimationFrame(tick);
+        };
+        const handleLeave = () => {
+            targetX = targetY = 0;
+            if (!frame) frame = requestAnimationFrame(tick);
+        };
+        window.addEventListener('pointermove', handleMove);
+        document.documentElement.addEventListener('pointerleave', handleLeave);
+        return () => {
+            window.removeEventListener('pointermove', handleMove);
+            document.documentElement.removeEventListener('pointerleave', handleLeave);
+            cancelAnimationFrame(frame);
+        };
+    }, [parallaxEnabled]);
 
     const scrollToFiles = () => {
         const el = scrollRef.current;
@@ -72,15 +111,16 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
         <div className="relative h-full min-h-0 overflow-hidden">
             {/* Illustration layer */}
             <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,#141b29_0_10px,#0f1521_10px_20px)]" />
-            <div
-                className="absolute inset-0 bg-cover bg-center transition-[opacity,transform] duration-700 ease-out"
-                style={{
-                    backgroundImage: bgImage ? `url("${bgImage}")` : 'none',
-                    opacity: isBgLoaded ? 1 : 0,
-                    transform: isBgLoaded ? 'scale(1)' : 'scale(1.04)',
-                }}
-                aria-hidden="true"
-            />
+            <div ref={parallaxRef} className="absolute -inset-6 will-change-transform" aria-hidden="true">
+                <div
+                    className="absolute inset-0 bg-cover bg-center transition-[opacity,transform] duration-700 ease-out"
+                    style={{
+                        backgroundImage: bgImage ? `url("${bgImage}")` : 'none',
+                        opacity: isBgLoaded ? 1 : 0,
+                        transform: isBgLoaded ? 'scale(1)' : 'scale(1.04)',
+                    }}
+                />
+            </div>
             <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_bottom,rgba(9,11,16,0)_15%,rgba(9,11,16,.7)_50%,#090b10_82%)]" />
             <div className="absolute inset-0 pointer-events-none bg-[#090b10]" style={{ opacity: dim }} />
 
@@ -100,7 +140,7 @@ export const SongWorkspace: React.FC<SongWorkspaceProps> = ({
                         <div className="min-h-full flex flex-col justify-end gap-5 px-5 sm:px-10 pt-10">
                             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 lg:gap-6">
                                 <div className="flex flex-col gap-1 min-w-0">
-                                    <span className="font-mono text-[11px] font-medium tracking-[.12em] text-[#22d3ee] break-all select-all" title="Song ID">{song.id}</span>
+                                    <span className="relative z-10 self-start -my-1 py-1 font-mono text-[11px] font-medium tracking-[.12em] text-[#22d3ee] break-all select-all cursor-text" title="Song ID">{song.id}</span>
                                     <h2 className="text-[32px] sm:text-[52px] font-bold leading-[1.15] tracking-[-0.01em] text-white break-words">{song.name}</h2>
                                     <span className="text-base text-slate-400">{song.composer}</span>
                                 </div>

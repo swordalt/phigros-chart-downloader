@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { defaultSettings, Settings } from '../defaultSettings';
 import { PROXY_SOURCES } from '../utils/resourceUrls';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { DialogFrame, DialogHeader, Button } from './ui/Dialog';
 
 export type SettingsCategory = 'export' | 'visual' | 'proxy' | 'advanced';
@@ -169,6 +170,7 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose, i
     const { settings, setSettings } = useSettings();
     const [confirmReset, setConfirmReset] = useState(false);
     const [category, setCategory] = useState<SettingsCategory>(initialCategory);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (!isOpen) {
@@ -221,6 +223,11 @@ export const SettingsPopup: React.FC<SettingsPopupProps> = ({ isOpen, onClose, i
             <Row title="Blur" description="Blur the content behind popups and glass panels. When off, a black fade is used instead.">
                 <Toggle label="Blur" enabled={settings.newUiBlur} onChange={v => update('newUiBlur', v)} />
             </Row>
+            {!isMobile && (
+                <Row title="Background follows mouse" description="Slightly shift the song illustration as the mouse moves.">
+                    <Toggle label="Background follows mouse" enabled={settings.newUiBackgroundParallax} onChange={v => update('newUiBackgroundParallax', v)} />
+                </Row>
+            )}
         </>
     );
 

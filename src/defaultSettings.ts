@@ -15,6 +15,7 @@ export interface Settings {
     newUiLoopAudio: boolean;
     newUiAutoplayAudio: boolean;
     newUiBlur: boolean;
+    newUiBackgroundParallax: boolean;
     bulkDownloadMode: boolean;
     advancedInfo: boolean;
 }
@@ -33,6 +34,7 @@ export const defaultSettings: Settings = {
     newUiLoopAudio: true,
     newUiAutoplayAudio: false,
     newUiBlur: false,
+    newUiBackgroundParallax: true,
     bulkDownloadMode: false,
     advancedInfo: false,
 };

@@ -168,7 +168,7 @@ export const MobileSongView: React.FC<MobileSongViewProps> = ({
                 {song && (
                     <div className="flex flex-col gap-5">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="font-mono text-[11px] font-medium tracking-[.12em] text-[#22d3ee] break-all select-all" title="Song ID">{song.id}</span>
+                            <span className="relative z-10 self-start -my-1 py-1 font-mono text-[11px] font-medium tracking-[.12em] text-[#22d3ee] break-all select-all cursor-text" title="Song ID">{song.id}</span>
                             <h2 className="text-[32px] font-bold leading-[1.12] tracking-[-0.01em] text-white break-words text-balance">{song.name}</h2>
                             <span className="text-[15px] text-slate-400">{song.composer}</span>
                         </div>

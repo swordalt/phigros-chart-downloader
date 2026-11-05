@@ -17,7 +17,7 @@ export const FAQPopup: React.FC<FAQPopupProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <DialogFrame onClose={onClose} labelledBy="faq-title" className="w-full max-w-[680px] max-h-[calc(100dvh-32px)]">
+        <DialogFrame onClose={onClose} labelledBy="faq-title" className="w-full max-w-[680px] h-[min(640px,calc(100dvh-32px))]">
             <DialogHeader id="faq-title" eyebrow="Help" title="Frequently asked questions" onClose={onClose} />
 
             <div className="flex-1 min-h-0 overflow-y-auto thin-scroll px-6 max-md:px-5 pt-2 pb-3 flex flex-col">

@@ -29,7 +29,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <DialogFrame onClose={onClose} labelledBy="about-title" className="w-full max-w-[680px] max-h-[min(660px,calc(100dvh-32px))]">
+        <DialogFrame onClose={onClose} labelledBy="about-title" className="w-full max-w-[680px] h-[min(660px,calc(100dvh-32px))]">
             <div className="flex-none flex items-start justify-between gap-6 max-md:gap-4 px-6 max-md:px-5 pt-[22px] pb-5 border-b border-white/[.06]">
                 <div className="flex flex-col gap-2">
                     <Eyebrow>About the Project</Eyebrow>
