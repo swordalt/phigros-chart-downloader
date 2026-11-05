@@ -24,6 +24,7 @@ import { exportAllAssets, exportChart, exportBulkAssets } from './utils/export';
 import { getResourceUrl, hasPerDifficultyIllustrations, getDifficultyIllustrationUrl } from './utils/resourceUrls';
 import { useSongFiles, getChartDifficulty } from './hooks/useSongFiles';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useMediaSession } from './hooks/useMediaSession';
 import { MobileLayout } from './components/mobile/MobileLayout';
 
 const REPO_URL = 'https://github.com/swordalt/phigros-chart-downloader/';
@@ -265,6 +266,14 @@ const App: React.FC = () => {
             activeAudio.volume = settings.newUiAudioVolume;
         }
     }, [activeAudio, settings.newUiAudioVolume]);
+
+    // Song name and jacket in browser/OS media controls. The low-res art is enough at thumbnail size.
+    const jacketUrl = selectedSong
+        ? hasPerDifficultyIllustrations(selectedSong.id)
+            ? getDifficultyIllustrationUrl(settings.proxySource, selectedSong.id, 'AT')
+            : getResourceUrl(settings.proxySource, 'illustrationLowRes', `${selectedSong.id}.png`)
+        : null;
+    useMediaSession(activeAudio, selectedSong, jacketUrl);
 
     // Stop audio when the audio element is replaced or the app unmounts
     useEffect(() => {
